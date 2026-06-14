@@ -2,7 +2,7 @@
 
 A single-page personal dashboard. Password-gated, self-hosted, built for one.
 
-![dashboard mockup](design/mockup.html)
+[View design mockup](design/mockup.html)
 
 ## Widgets
 
@@ -15,16 +15,13 @@ A single-page personal dashboard. Password-gated, self-hosted, built for one.
 
 ## Stack
 
-- **Next.js** (App Router) — frontend + API routes
-- **Supabase** — Postgres database, accessed via service role key from API routes
-- **Vercel** — deployment
-- Password-based auth gate (no OAuth, no accounts — just a shared secret)
+Next.js (App Router) for the frontend and API routes, Supabase for Postgres (accessed server-side via the service role key), and Vercel for deployment. Auth is a single shared password with no OAuth or user accounts.
 
 ## Setup
 
 ### 1. Database
 
-Run `app-src/supabase/migrations/0001_init.sql` in your Supabase project's SQL editor. It creates the `tasks`, `entities`, `daily_logs`, `habit_config`, and `audit_logs` tables with RLS enabled (all access goes through the service role key in API routes).
+Run `app-src/supabase/migrations/0001_init.sql` in your Supabase project's SQL editor. It creates the `tasks`, `entities`, `daily_logs`, `habit_config`, and `audit_logs` tables with RLS enabled; all access goes through the service role key in API routes.
 
 ### 2. Environment variables
 
