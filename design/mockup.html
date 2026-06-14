@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal OS — Design Mockup</title>
+  <style>
+    :root {
+      --ink-0: oklch(0.12 0.01 250);
+      --ink-1: oklch(0.18 0.015 250);
+      --ink-2: oklch(0.25 0.015 250);
+      --ink-3: oklch(0.40 0.01 250);
+      --ink-4: oklch(0.60 0.008 250);
+      --ink-5: oklch(0.75 0.006 250);
+      --ink-6: oklch(0.92 0.003 250);
+      --accent: oklch(0.72 0.18 260);
+      --accent-dim: oklch(0.72 0.18 260 / 0.15);
+      --accent-border: oklch(0.72 0.18 260 / 0.35);
+      --ok: oklch(0.70 0.16 142);
+      --warn: oklch(0.78 0.17 70);
+      --danger: oklch(0.65 0.20 25);
+      --ok-dim: oklch(0.70 0.16 142 / 0.15);
+      --warn-dim: oklch(0.78 0.17 70 / 0.15);
+      --danger-dim: oklch(0.65 0.20 25 / 0.15);
+      --glass: oklch(0.18 0.012 250 / 0.7);
+      --glass-border: oklch(1 0 0 / 0.07);
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--ink-0);
+      color: var(--ink-6);
+      min-height: 100vh;
+      font-size: 13px;
+    }
+
+    /* ── TOP RAIL ── */
+    .rail {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      height: 52px;
+      border-bottom: 1px solid var(--glass-border);
+      background: oklch(0.14 0.012 250 / 0.9);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .rail-brand {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .rail-tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--ink-1);
+      border-radius: 8px;
+      padding: 3px;
+    }
+    .rail-tab {
+      padding: 5px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ink-4);
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.03em;
+    }
+    .rail-tab.active {
+      background: var(--ink-2);
+      color: var(--ink-6);
+    }
+    .rail-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .rail-time {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      color: var(--ink-4);
+      letter-spacing: 0.05em;
+    }
+
+    /* ── LAYOUT ── */
+    .page { display: none; padding: 16px 20px; }
+    .page.active { display: block; }
+
+    .home-grid {
+      display: grid;
+      grid-template-columns: 300px minmax(0, 620px);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .col { display: flex; flex-direction: column; gap: 12px; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(16px);
+      overflow: hidden;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px 10px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .card-label {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      color: var(--ink-4);
+      text-transform: uppercase;
+    }
+    .card-body { padding: 14px 16px; }
+
+    /* ── HQ CARD ── */
+    .hq-greeting {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--ink-6);
+      margin-bottom: 2px;
+    }
+    .hq-sub {
+      font-size: 11px;
+      color: var(--ink-4);
+      margin-bottom: 14px;
+    }
+    .hq-datetime {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 28px;
+      font-weight: 300;
+      color: var(--ink-6);
+      letter-spacing: -0.02em;
+      margin-bottom: 2px;
+    }
+    .hq-date {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 10px;
+      color: var(--ink-4);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .hq-chip {
+      font-size: 10px;
+      color: var(--ink-4);
+      background: var(--ink-1);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 3px 8px;
+      margin-top: 12px;
+      display: inline-block;
+    }
+
+    /* ── TODAY'S TASKS CARD ── */
+    .task-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--glass-border);
+      cursor: pointer;
+    }
+    .task-row:last-child { border-bottom: none; }
+    .task-row:hover { opacity: 0.8; }
+    .task-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+    .task-dot.key { background: var(--warn); }
+    .task-title {
+      flex: 1;
+      font-size: 12px;
+      color: var(--ink-6);
+      line-height: 1.3;
+    }
+    .badge {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .badge-points {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+    }
+    .badge-today {
+      background: var(--warn-dim);
+      color: var(--warn);
+    }
+    .tasks-footer {
+      padding: 8px 16px;
+      font-size: 10px;
+      color: var(--accent);
+      cursor: pointer;
+      text-align: right;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── HABIT TRACKER ── */
+    .habit-tabs {
+      display: flex;
+      gap: 2px;
+      padding: 3px;
+      background: var(--ink-1);
+      border-radius: 6px;
+    }
+    .habit-tab {
+      flex: 1;
+      text-align: center;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      color: var(--ink-4);
+      cursor: pointer;
+      letter-spacing: 0.04em;
+    }
+    .habit-tab.active {
+      background: var(--ink-2);
+      color: var(--ink-6);
+    }
+
+    /* Today view */
+    .habit-today { display: flex; flex-direction: column; gap: 2px; }
+    .habit-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .habit-item:last-child { border-bottom: none; }
+    .habit-name {
+      flex: 1;
+      font-size: 12px;
+      color: var(--ink-5);
+    }
+    .habit-levels {
+      display: flex;
+      gap: 4px;
+    }
+    .level-btn {
+      width: 22px; height: 22px;
+      border-radius: 5px;
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .level-btn:hover { transform: scale(1.15); }
+    .level-btn.l1 { background: oklch(0.70 0.16 142 / 0.35); }
+    .level-btn.l2 { background: oklch(0.70 0.16 142 / 0.60); }
+    .level-btn.l3 { background: oklch(0.70 0.16 142 / 0.85); }
+    .level-btn.l4 { background: oklch(0.70 0.16 142); }
+    .level-btn.active { border-color: var(--ok); box-shadow: 0 0 0 2px var(--ok-dim); }
+
+    /* Sleep special */
+    .sleep-btns { display: flex; gap: 6px; }
+    .sleep-btn {
+      font-size: 9px;
+      padding: 4px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--glass-border);
+      background: var(--ink-1);
+      color: var(--ink-5);
+      cursor: pointer;
+      letter-spacing: 0.03em;
+    }
+    .sleep-btn.set { background: var(--accent-dim); color: var(--accent); border-color: var(--accent-border); }
+
+    /* Story points badge */
+    .sp-badge {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 10px;
+      color: var(--ink-4);
+      background: var(--ink-1);
+      border: 1px solid var(--glass-border);
+      border-radius: 5px;
+      padding: 3px 7px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .lock-icon { font-size: 8px; opacity: 0.5; }
+
+    /* History/grid view */
+    .habit-grid-wrap { overflow-x: auto; }
+    .habit-grid {
+      border-collapse: collapse;
+      font-size: 10px;
+      min-width: 100%;
+    }
+    .habit-grid th {
+      text-align: left;
+      padding: 4px 6px;
+      color: var(--ink-3);
+      font-weight: 400;
+      border-bottom: 1px solid var(--glass-border);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 9px;
+    }
+    .habit-grid td { padding: 3px 2px; }
+    .habit-grid .hname {
+      padding: 3px 6px;
+      color: var(--ink-5);
+      white-space: nowrap;
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .grid-cell {
+      width: 18px; height: 18px;
+      border-radius: 3px;
+      border: 1px solid oklch(1 0 0 / 0.06);
+      cursor: pointer;
+      display: block;
+    }
+    .grid-cell:hover { transform: scale(1.2); }
+
+    /* Averages bar */
+    .avg-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      border-top: 1px solid var(--glass-border);
+    }
+    .avg-name { width: 100px; font-size: 10px; color: var(--ink-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .avg-bar-wrap { flex: 1; height: 4px; background: var(--ink-1); border-radius: 2px; overflow: hidden; }
+    .avg-bar { height: 100%; border-radius: 2px; }
+    .avg-score { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px; color: var(--ink-4); width: 24px; text-align: right; }
+
+    /* ── CALENDAR ── */
+    .cal-strip {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .cal-day {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 8px 4px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .cal-day:hover { background: var(--ink-2); }
+    .cal-day.today { background: var(--accent-dim); }
+    .cal-dow {
+      font-size: 9px;
+      color: var(--ink-3);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .cal-num {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ink-5);
+    }
+    .cal-day.today .cal-num { color: var(--accent); }
+    .cal-dot {
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .cal-events {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .cal-event {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .cal-event-time {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 9px;
+      color: var(--ink-3);
+      white-space: nowrap;
+      padding-top: 1px;
+    }
+    .cal-event-bar {
+      width: 2px;
+      align-self: stretch;
+      background: var(--accent);
+      border-radius: 1px;
+      flex-shrink: 0;
+    }
+    .cal-event-title { font-size: 11px; color: var(--ink-5); line-height: 1.3; }
+
+    /* ── TASKS PAGE ── */
+    .tasks-page { padding: 16px 20px; }
+    .tasks-view-tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--ink-1);
+      border-radius: 8px;
+      padding: 3px;
+      width: fit-content;
+      margin-bottom: 16px;
+    }
+    .tasks-view-tab {
+      padding: 6px 18px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ink-4);
+      cursor: pointer;
+      letter-spacing: 0.03em;
+    }
+    .tasks-view-tab.active {
+      background: var(--ink-2);
+      color: var(--ink-6);
+    }
+
+    /* Kanban */
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+    .kanban-col { display: flex; flex-direction: column; gap: 8px; }
+    .kanban-col-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2px 8px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .col-title {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      color: var(--ink-4);
+      text-transform: uppercase;
+    }
+    .col-count {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 9px;
+      color: var(--ink-3);
+    }
+    .task-card {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .task-card:hover { border-color: var(--accent-border); }
+    .task-card-title { font-size: 12px; color: var(--ink-6); margin-bottom: 6px; line-height: 1.35; }
+    .task-card-desc { font-size: 10px; color: var(--ink-3); margin-bottom: 8px; line-height: 1.4; }
+    .task-card-meta { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tag {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--ink-1);
+      color: var(--ink-4);
+      border: 1px solid var(--glass-border);
+    }
+    .tag.due {
+      background: var(--warn-dim);
+      color: var(--warn);
+    }
+    .tag.key-task {
+      background: oklch(0.72 0.18 260 / 0.12);
+      color: var(--accent);
+      border-color: var(--accent-border);
+    }
+    .new-task-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px dashed var(--ink-2);
+      color: var(--ink-3);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .new-task-btn:hover { border-color: var(--accent-border); color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<!-- TOP RAIL -->
+<nav class="rail">
+  <span class="rail-brand">PERSONAL OS // v1.0</span>
+  <div class="rail-tabs">
+    <div class="rail-tab active" onclick="switchPage('home')">Home</div>
+    <div class="rail-tab" onclick="switchPage('tasks')">Tasks</div>
+  </div>
+  <div class="rail-right">
+    <span class="rail-time" id="clock">15:38 · FRI MAY 15</span>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════ HOME PAGE ══════════════════════════════════ -->
+<div class="page active" id="page-home">
+  <div class="home-grid">
+
+    <!-- LEFT COLUMN: Today's Tasks + Calendar -->
+    <div class="col">
+
+      <!-- TODAY'S TASKS -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-label">Today's Key Tasks</span>
+          <span class="card-label" style="color:var(--accent)">3 DUE</span>
+        </div>
+        <div class="card-body" style="padding:8px 16px">
+          <div class="task-row">
+            <div class="task-dot key"></div>
+            <div class="task-title">Finish dashboard design mockup</div>
+            <span class="badge badge-points">5 pts</span>
+          </div>
+          <div class="task-row">
+            <div class="task-dot key"></div>
+            <div class="task-title">Review pull request for auth gate</div>
+            <span class="badge badge-points">3 pts</span>
+          </div>
+          <div class="task-row">
+            <div class="task-dot"></div>
+            <div class="task-title">Write weekly update email</div>
+          </div>
+        </div>
+        <div class="tasks-footer" onclick="switchPage('tasks')">View all tasks →</div>
+      </div>
+
+      <!-- CALENDAR -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-label">Calendar</span>
+          <span class="card-label" style="color:var(--ink-3)">MAY 2026</span>
+        </div>
+        <div class="card-body">
+          <div class="cal-strip">
+            <div class="cal-day">
+              <span class="cal-dow">MON</span>
+              <span class="cal-num">11</span>
+            </div>
+            <div class="cal-day">
+              <span class="cal-dow">TUE</span>
+              <span class="cal-num">12</span>
+              <div class="cal-dot"></div>
+            </div>
+            <div class="cal-day">
+              <span class="cal-dow">WED</span>
+              <span class="cal-num">13</span>
+            </div>
+            <div class="cal-day">
+              <span class="cal-dow">THU</span>
+              <span class="cal-num">14</span>
+              <div class="cal-dot"></div>
+            </div>
+            <div class="cal-day today">
+              <span class="cal-dow">FRI</span>
+              <span class="cal-num">15</span>
+              <div class="cal-dot"></div>
+            </div>
+            <div class="cal-day">
+              <span class="cal-dow">SAT</span>
+              <span class="cal-num">16</span>
+            </div>
+            <div class="cal-day">
+              <span class="cal-dow">SUN</span>
+              <span class="cal-num">17</span>
+            </div>
+          </div>
+
+          <div class="cal-events">
+            <div style="font-size:9px;letter-spacing:0.1em;color:var(--ink-3);margin-top:4px;margin-bottom:2px">TODAY · FRI MAY 15</div>
+            <div class="cal-event">
+              <span class="cal-event-time">09:00</span>
+              <div class="cal-event-bar"></div>
+              <span class="cal-event-title">Team standup</span>
+            </div>
+            <div class="cal-event">
+              <span class="cal-event-time">11:00</span>
+              <div class="cal-event-bar" style="background:var(--ok)"></div>
+              <span class="cal-event-title">Deep work — dashboard build</span>
+            </div>
+            <div class="cal-event">
+              <span class="cal-event-time">14:00</span>
+              <div class="cal-event-bar" style="background:var(--warn)"></div>
+              <span class="cal-event-title">1:1 with mentor</span>
+            </div>
+            <div class="cal-event">
+              <span class="cal-event-time">16:30</span>
+              <div class="cal-event-bar"></div>
+              <span class="cal-event-title">Gym</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN: Habit Tracker (wider for the monthly grid) -->
+    <div class="col">
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-label">Habit Tracker</span>
+          <div class="habit-tabs" id="habit-tabs">
+            <div class="habit-tab active" onclick="switchHabits('today', this)">Today</div>
+            <div class="habit-tab" onclick="switchHabits('history', this)">History</div>
+          </div>
+        </div>
+        <div class="card-body" id="habit-today">
+          <div class="habit-today">
+
+            <!-- Sleep (special) -->
+            <div class="habit-item">
+              <div class="habit-name">🌙 Sleep</div>
+              <div class="sleep-btns">
+                <button class="sleep-btn">Sleeping</button>
+                <button class="sleep-btn set">Woke up 7h 22m</button>
+              </div>
+            </div>
+
+            <!-- Story points (auto, read-only) -->
+            <div class="habit-item">
+              <div class="habit-name">⚡ Story Points</div>
+              <div class="sp-badge"><span class="lock-icon">🔒</span> 8 pts today</div>
+            </div>
+
+            <!-- User-defined habits -->
+            <div class="habit-item">
+              <div class="habit-name">Exercise</div>
+              <div class="habit-levels">
+                <button class="level-btn l1" title="Light"></button>
+                <button class="level-btn l2" title="Moderate"></button>
+                <button class="level-btn l3 active" title="Hard" style="background:oklch(0.70 0.16 142 / 0.85);border-color:var(--ok)"></button>
+                <button class="level-btn l4" title="Intense"></button>
+              </div>
+            </div>
+
+            <div class="habit-item">
+              <div class="habit-name">Reading</div>
+              <div class="habit-levels">
+                <button class="level-btn" title="15 min"></button>
+                <button class="level-btn" title="30 min"></button>
+                <button class="level-btn" title="1 hour"></button>
+              </div>
+            </div>
+
+            <div class="habit-item">
+              <div class="habit-name">Meditation</div>
+              <div class="habit-levels">
+                <button class="level-btn" title="5 min"></button>
+                <button class="level-btn l2 active" title="10 min" style="background:oklch(0.72 0.18 260 / 0.60);border-color:var(--accent)"></button>
+                <button class="level-btn" title="20 min"></button>
+              </div>
+            </div>
+
+            <div class="habit-item">
+              <div class="habit-name">No phone after 9pm</div>
+              <div class="habit-levels">
+                <button class="level-btn" title="Done"></button>
+              </div>
+            </div>
+
+            <div class="habit-item">
+              <div class="habit-name">Deep work block</div>
+              <div class="habit-levels">
+                <button class="level-btn" title="1 hour"></button>
+                <button class="level-btn" title="2 hours"></button>
+                <button class="level-btn" title="3 hours"></button>
+                <button class="level-btn" title="4+ hours"></button>
+              </div>
+            </div>
+
+            <div class="habit-item">
+              <div class="habit-name">Water (2L)</div>
+              <div class="habit-levels">
+                <button class="level-btn" title="500ml"></button>
+                <button class="level-btn" title="1L"></button>
+                <button class="level-btn" title="1.5L"></button>
+                <button class="level-btn" title="2L+"></button>
+              </div>
+            </div>
+
+            <div class="habit-item">
+              <div class="habit-name">Journaling</div>
+              <div class="habit-levels">
+                <button class="level-btn" title="Done"></button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <div class="card-body" id="habit-history" style="display:none">
+          <div style="font-family:'SF Mono','Fira Code',monospace;font-size:10px;color:var(--ink-3);margin-bottom:10px;letter-spacing:0.05em">MAY 2026</div>
+          <div class="habit-grid-wrap">
+            <table class="habit-grid">
+              <thead>
+                <tr>
+                  <th style="min-width:110px">HABIT</th>
+                  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th>
+                  <th>8</th><th>9</th><th>10</th><th>11</th><th>12</th><th>13</th><th>14</th>
+                  <th style="color:var(--accent);font-weight:700">15</th>
+                  <th>16</th><th>17</th><th>18</th><th>19</th><th>20</th><th>21</th><th>22</th><th>23</th><th>24</th><th>25</th><th>26</th><th>27</th><th>28</th><th>29</th><th>30</th><th>31</th>
+                </tr>
+              </thead>
+              <tbody id="habit-grid-body"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:12px;border-top:1px solid var(--glass-border);padding-top:10px">
+            <div style="font-size:9px;color:var(--ink-3);letter-spacing:0.1em;margin-bottom:8px">MONTHLY AVERAGES</div>
+            <div id="avg-bars"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ TASKS PAGE ══════════════════════════════════ -->
+<div class="page" id="page-tasks">
+  <div class="tasks-page">
+    <div class="tasks-view-tabs">
+      <div class="tasks-view-tab active" onclick="switchTaskView('kanban', this)">Kanban</div>
+      <div class="tasks-view-tab" onclick="switchTaskView('forecast', this)">Forecast</div>
+      <div class="tasks-view-tab" onclick="switchTaskView('category', this)">Category</div>
+    </div>
+
+    <!-- KANBAN VIEW -->
+    <div id="tasks-kanban" class="kanban">
+      <!-- TODAY -->
+      <div class="kanban-col">
+        <div class="kanban-col-header">
+          <span class="col-title" style="color:var(--warn)">Today</span>
+          <span class="col-count">3</span>
+        </div>
+        <div class="task-card">
+          <div class="task-card-title">Finish dashboard design mockup</div>
+          <div class="task-card-desc">Generate HTML, review layout, adjust colours.</div>
+          <div class="task-card-meta">
+            <span class="badge badge-points">5 pts</span>
+            <span class="tag key-task">★ KEY</span>
+            <span class="tag">design</span>
+          </div>
+        </div>
+        <div class="task-card">
+          <div class="task-card-title">Review PR for auth gate</div>
+          <div class="task-card-desc">Check HMAC signature, test cookie expiry.</div>
+          <div class="task-card-meta">
+            <span class="badge badge-points">3 pts</span>
+            <span class="tag key-task">★ KEY</span>
+            <span class="tag">eng</span>
+          </div>
+        </div>
+        <div class="task-card">
+          <div class="task-card-title">Write weekly update email</div>
+          <div class="task-card-meta">
+            <span class="tag">comms</span>
+          </div>
+        </div>
+        <div class="new-task-btn">＋ Add task</div>
+      </div>
+
+      <!-- THIS WEEK -->
+      <div class="kanban-col">
+        <div class="kanban-col-header">
+          <span class="col-title" style="color:var(--accent)">This Week</span>
+          <span class="col-count">4</span>
+        </div>
+        <div class="task-card">
+          <div class="task-card-title">Scaffold Next.js project + Supabase schema</div>
+          <div class="task-card-desc">Run A1, A2 prompts. Enable RLS.</div>
+          <div class="task-card-meta">
+            <span class="badge badge-points">8 pts</span>
+            <span class="tag due">Due May 17</span>
+            <span class="tag">eng</span>
+          </div>
+        </div>
+        <div class="task-card">
+          <div class="task-card-title">Port habit tracker to Supabase</div>
+          <div class="task-card-meta">
+            <span class="badge badge-points">5 pts</span>
+            <span class="tag">eng</span>
+          </div>
+        </div>
+        <div class="task-card">
+          <div class="task-card-title">Call dentist to reschedule</div>
+          <div class="task-card-meta">
+            <span class="tag">life</span>
+          </div>
+        </div>
+        <div class="task-card">
+          <div class="task-card-title">Read Atomic Habits ch. 4–6</div>
+          <div class="task-card-meta">
+            <span class="tag">reading</span>
+          </div>
+        </div>
+        <div class="new-task-btn">＋ Add task</div>
+      </div>
+
+      <!-- THIS MONTH -->
+      <div class="kanban-col">
+        <div class="kanban-col-header">
+          <span class="col-title" style="color:var(--ink-4)">This Month</span>
+          <span class="col-count">2</span>
+        </div>
+        <div class="task-card">
+          <div class="task-card-title">Deploy to Vercel + configure env vars</div>
+          <div class="task-card-meta">
+            <span class="badge badge-points">3 pts</span>
+            <span class="tag">eng</span>
+          </div>
+        </div>
+        <div class="task-card">
+          <div class="task-card-title">Set up Google Calendar iCal URL</div>
+          <div class="task-card-meta">
+            <span class="tag">setup</span>
+          </div>
+        </div>
+        <div class="new-task-btn">＋ Add task</div>
+      </div>
+
+      <!-- SOMEDAY -->
+      <div class="kanban-col">
+        <div class="kanban-col-header">
+          <span class="col-title" style="color:var(--ink-3)">Someday</span>
+          <span class="col-count">3</span>
+        </div>
+        <div class="task-card">
+          <div class="task-card-title">Add journal tab</div>
+          <div class="task-card-desc">Simple markdown journal stored in daily_logs</div>
+          <div class="task-card-meta">
+            <span class="tag">feature</span>
+          </div>
+        </div>
+        <div class="task-card">
+          <div class="task-card-title">Public read-only dashboard view</div>
+          <div class="task-card-meta">
+            <span class="tag">feature</span>
+          </div>
+        </div>
+        <div class="task-card">
+          <div class="task-card-title">Morning briefing cron</div>
+          <div class="task-card-meta">
+            <span class="tag">feature</span>
+          </div>
+        </div>
+        <div class="new-task-btn">＋ Add task</div>
+      </div>
+    </div>
+
+    <!-- FORECAST VIEW -->
+    <div id="tasks-forecast" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:16px">
+        <div style="grid-column:1/-1;font-family:'SF Mono','Fira Code',monospace;font-size:9px;color:var(--ink-3);letter-spacing:0.1em;padding-bottom:6px;border-bottom:1px solid var(--glass-border)">MAY 2026 — OVERDUE + NEXT 4 WEEKS</div>
+        <!-- Overdue -->
+        <div style="grid-column:1/-1;background:var(--danger-dim);border:1px solid oklch(0.65 0.20 25 / 0.3);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:4px">
+          <div style="font-size:9px;color:var(--danger);letter-spacing:0.1em;margin-bottom:8px">OVERDUE</div>
+          <div style="font-size:12px;color:var(--ink-5)">No overdue tasks</div>
+        </div>
+        <!-- Week days -->
+        <style>
+          .fcal-day { background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:8px;min-height:90px }
+          .fcal-day.today-col { border-color:var(--accent-border) }
+          .fcal-head { font-family:'SF Mono','Fira Code',monospace;font-size:9px;color:var(--ink-3);margin-bottom:6px }
+          .fcal-head span { color:var(--accent) }
+          .fcal-task { font-size:10px;color:var(--ink-5);padding:3px 6px;background:var(--ink-1);border-radius:4px;margin-bottom:3px;cursor:pointer }
+          .fcal-task:hover { color:var(--ink-6) }
+        </style>
+        <div class="fcal-day"><div class="fcal-head">MON 12</div></div>
+        <div class="fcal-day"><div class="fcal-head">TUE 13</div></div>
+        <div class="fcal-day"><div class="fcal-head">WED 14</div></div>
+        <div class="fcal-day today-col"><div class="fcal-head"><span>FRI 15 ·TODAY</span></div><div class="fcal-task">Finish dashboard mockup</div><div class="fcal-task">Review PR</div></div>
+        <div class="fcal-day"><div class="fcal-head">FRI 16</div></div>
+        <div class="fcal-day"><div class="fcal-head">SAT 17</div><div class="fcal-task">Scaffold Next.js</div></div>
+        <div class="fcal-day"><div class="fcal-head">SUN 18</div></div>
+      </div>
+    </div>
+
+    <!-- CATEGORY VIEW -->
+    <div id="tasks-category" style="display:none">
+      <style>
+        .cat-group { margin-bottom:20px }
+        .cat-group-header { font-family:'SF Mono','Fira Code',monospace;font-size:9px;color:var(--ink-3);letter-spacing:0.12em;text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid var(--glass-border);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between }
+        .cat-tasks { display:flex;flex-direction:column;gap:6px }
+        .cat-task { background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:9px 12px;display:flex;align-items:center;gap:10px;cursor:pointer }
+        .cat-task:hover { border-color:var(--accent-border) }
+        .cat-task-title { flex:1;font-size:12px;color:var(--ink-6) }
+        .urgency-chip { font-size:9px;padding:2px 6px;border-radius:4px;font-family:'SF Mono','Fira Code',monospace }
+        .u-today { background:var(--warn-dim);color:var(--warn) }
+        .u-week  { background:var(--accent-dim);color:var(--accent) }
+        .u-month { background:var(--ink-1);color:var(--ink-4) }
+      </style>
+      <div class="cat-group">
+        <div class="cat-group-header"><span>Engineering</span><span style="color:var(--ink-3)">4 tasks</span></div>
+        <div class="cat-tasks">
+          <div class="cat-task"><div class="cat-task-title">Finish dashboard design mockup</div><span class="badge badge-points">5 pts</span><span class="urgency-chip u-today">TODAY</span></div>
+          <div class="cat-task"><div class="cat-task-title">Review PR for auth gate</div><span class="badge badge-points">3 pts</span><span class="urgency-chip u-today">TODAY</span></div>
+          <div class="cat-task"><div class="cat-task-title">Scaffold Next.js project + Supabase schema</div><span class="badge badge-points">8 pts</span><span class="urgency-chip u-week">THIS WEEK</span></div>
+          <div class="cat-task"><div class="cat-task-title">Port habit tracker to Supabase</div><span class="badge badge-points">5 pts</span><span class="urgency-chip u-week">THIS WEEK</span></div>
+        </div>
+      </div>
+      <div class="cat-group">
+        <div class="cat-group-header"><span>Life</span><span style="color:var(--ink-3)">2 tasks</span></div>
+        <div class="cat-tasks">
+          <div class="cat-task"><div class="cat-task-title">Write weekly update email</div><span class="urgency-chip u-today">TODAY</span></div>
+          <div class="cat-task"><div class="cat-task-title">Call dentist to reschedule</div><span class="urgency-chip u-week">THIS WEEK</span></div>
+        </div>
+      </div>
+      <div class="cat-group">
+        <div class="cat-group-header"><span>Uncategorised</span><span style="color:var(--ink-3)">2 tasks</span></div>
+        <div class="cat-tasks">
+          <div class="cat-task"><div class="cat-task-title">Read Atomic Habits ch. 4–6</div><span class="urgency-chip u-week">THIS WEEK</span></div>
+          <div class="cat-task"><div class="cat-task-title">Deploy to Vercel + configure env vars</div><span class="urgency-chip u-month">THIS MONTH</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Clock (rail only — no HQ card)
+  function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+    const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+    document.getElementById('clock').textContent = `${h}:${m} · ${days[now.getDay()]} ${months[now.getMonth()]} ${now.getDate()}`;
+  }
+  updateClock();
+  setInterval(updateClock, 30000);
+
+  // Page switching
+  function switchPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.rail-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
+    const tabs = document.querySelectorAll('.rail-tab');
+    if (id === 'home') tabs[0].classList.add('active');
+    else tabs[1].classList.add('active');
+  }
+
+  // Habit Today/History tab switching
+  function switchHabits(view, el) {
+    document.querySelectorAll('#habit-tabs .habit-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('habit-today').style.display = view === 'today' ? 'block' : 'none';
+    document.getElementById('habit-history').style.display = view === 'history' ? 'block' : 'none';
+  }
+
+  // Tasks Kanban/Forecast/Category switching
+  function switchTaskView(view, el) {
+    document.querySelectorAll('.tasks-view-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('tasks-kanban').style.display   = view === 'kanban'   ? 'grid'  : 'none';
+    document.getElementById('tasks-forecast').style.display = view === 'forecast' ? 'block' : 'none';
+    document.getElementById('tasks-category').style.display = view === 'category' ? 'block' : 'none';
+  }
+
+  // Generate habit history grid (31 days, seeded random for demo)
+  const MONTH_COLOR = '#E8C832';
+  const TODAY_DAY = 15;
+  const habits = ['Sleep','Story Pts','Exercise','Reading','Meditation','No phone 9pm','Deep work','Water','Journaling'];
+  const gridBody = document.getElementById('habit-grid-body');
+  habits.forEach((name, hi) => {
+    const tr = document.createElement('tr');
+    const td0 = document.createElement('td');
+    td0.className = 'hname';
+    td0.textContent = name;
+    tr.appendChild(td0);
+    for (let d = 1; d <= 31; d++) {
+      const td = document.createElement('td');
+      const btn = document.createElement('button');
+      btn.className = 'grid-cell';
+      if (d >= TODAY_DAY) {
+        // future / today: empty
+      } else {
+        const seed = (hi * 31 + d) % 7;
+        const lvl = seed < 2 ? 0 : seed < 4 ? 1 : seed < 6 ? 2 : seed < 7 ? 3 : 4;
+        if (lvl > 0) {
+          const alpha = 0.2 + (lvl / 4) * 0.8;
+          btn.style.background = `rgba(232,200,50,${alpha})`;
+          btn.style.border = '1px solid transparent';
+        }
+      }
+      td.appendChild(btn);
+      tr.appendChild(td);
+    }
+    gridBody.appendChild(tr);
+  });
+
+  // Generate avg bars
+  const avgContainer = document.getElementById('avg-bars');
+  habits.forEach(name => {
+    const score = (Math.random() * 5 + 3).toFixed(1);
+    const div = document.createElement('div');
+    div.className = 'avg-row';
+    div.innerHTML = `
+      <div class="avg-name">${name}</div>
+      <div class="avg-bar-wrap"><div class="avg-bar" style="width:${score*10}%;background:#E8C832;opacity:0.75"></div></div>
+      <div class="avg-score">${score}</div>
+    `;
+    avgContainer.appendChild(div);
+  });
+</script>
+</body>
+</html>
