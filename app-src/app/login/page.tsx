@@ -6,14 +6,14 @@ import { Suspense } from 'react'
 function LoginForm() {
   const router = useRouter()
   const params = useSearchParams()
-  const [password, setPassword] = useState('')
-  const [error, setError]       = useState('')
-  const [loading, setLoading]   = useState(false)
+  const [error, setError]     = useState('')
+  const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError('')
+    const password = new FormData(e.currentTarget).get('password') as string
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -35,8 +35,7 @@ function LoginForm() {
       <input
         autoFocus
         type="password"
-        value={password}
-        onChange={e => setPassword(e.target.value)}
+        name="password"
         placeholder="Password"
         style={{
           background: 'var(--ink-1)',
