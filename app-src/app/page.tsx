@@ -6,13 +6,7 @@ import JobSearchWidget from '@/components/JobSearchWidget'
 export default function Home() {
   return (
     <div style={{ padding: '16px 20px', width: '100%' }}>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '260px 280px 1fr',
-        gap: 12,
-        alignItems: 'start',
-        width: '100%',
-      }}>
+      <div className="grid gap-3 items-start grid-cols-1 md:grid-cols-[260px_280px_1fr]">
         {/* Left column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <TodayTasks />
