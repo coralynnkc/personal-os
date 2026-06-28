@@ -38,7 +38,7 @@ export async function verifySessionCookie(value: string): Promise<boolean> {
   const sigBytes = hexToBuf(value.slice(dot + 1))
   if (sigBytes.length === 0) return false
   const key = await getKey()
-  const valid = await crypto.subtle.verify('HMAC', key, sigBytes, new TextEncoder().encode(payload))
+  const valid = await crypto.subtle.verify('HMAC', key, sigBytes as Uint8Array<ArrayBuffer>, new TextEncoder().encode(payload))
   if (!valid) return false
   return Date.now() < parseInt(payload, 10)
 }
