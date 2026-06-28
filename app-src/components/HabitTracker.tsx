@@ -131,56 +131,42 @@ function computeDayScore(
   return total / allHabits.length
 }
 
-function ScoreRing({ score, monthColor }: { score: number; monthColor: string }) {
-  const size = 68
+function ScoreRing({ score, monthColor, size = 36 }: { score: number; monthColor: string; size?: number }) {
   const cx = size / 2
   const cy = size / 2
-  const r = 27
+  const strokeWidth = 3
+  const r = (size - strokeWidth * 2) / 2
   const circumference = 2 * Math.PI * r
   const filled = (score / 10) * circumference
-  const opacity = 0.2 + (score / 10) * 0.8
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 12px' }}>
-      <div style={{ position: 'relative', width: size, height: size }}>
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke={monthColor} strokeWidth={5.5} opacity={0.1} />
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={monthColor} strokeWidth={strokeWidth} opacity={0.18} />
+        {score > 0 && (
           <circle
             cx={cx} cy={cy} r={r}
             fill="none"
             stroke={monthColor}
-            strokeWidth={5.5}
+            strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={`${filled} ${circumference - filled}`}
-            opacity={opacity}
           />
-        </svg>
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: 1,
+        )}
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <span style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 9,
+          fontWeight: 700,
+          color: monthColor,
+          lineHeight: 1,
         }}>
-          <span style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 15,
-            fontWeight: 700,
-            color: monthColor,
-            opacity,
-            lineHeight: 1,
-          }}>
-            {score.toFixed(1)}
-          </span>
-          <span style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 7,
-            letterSpacing: '0.08em',
-            color: monthColor,
-            opacity: opacity * 0.7,
-            textTransform: 'uppercase',
-          }}>
-            today
-          </span>
-        </div>
+          {score.toFixed(1)}
+        </span>
       </div>
     </div>
   )
@@ -353,6 +339,8 @@ export default function HabitTracker() {
     ...[...habits].sort((a, b) => a.name.localeCompare(b.name)),
   ]
 
+  const dayScore = computeDayScore(allHabits, todayLog, sleepLog, storyPoints)
+
   if (loading) {
     return (
       <CardShell>
@@ -375,8 +363,11 @@ export default function HabitTracker() {
           Habit Tracker
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Month color dot */}
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: monthColor, display: 'inline-block' }} />
+          {/* Score ring / month dot */}
+          {view === 'today'
+            ? <ScoreRing score={dayScore} monthColor={monthColor} />
+            : <span style={{ width: 8, height: 8, borderRadius: '50%', background: monthColor, display: 'inline-block' }} />
+          }
           {/* View tabs */}
           <div style={{ display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 6, padding: 3 }}>
             {(['today', 'month'] as const).map(v => (
@@ -506,12 +497,10 @@ function TodayView({
   onDelete: (id: string) => void
 }) {
   const [hoveredHabit, setHoveredHabit] = useState<string | null>(null)
-  const dayScore = computeDayScore(allHabits, todayLog, sleepLog, storyPoints)
 
   if (habits.length === 0 && allHabits.length === 2) {
     return (
       <div style={{ textAlign: 'center', padding: '24px 0' }}>
-        <ScoreRing score={dayScore} monthColor={monthColor} />
         <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 12 }}>No habits yet.</div>
       </div>
     )
@@ -525,7 +514,6 @@ function TodayView({
 
   return (
     <div>
-      <ScoreRing score={dayScore} monthColor={monthColor} />
       {allHabits.map(habit => {
         // ── Sleep row ───────────────────────────────────────────────────────
         if (habit.id === SLEEP_ID) {
