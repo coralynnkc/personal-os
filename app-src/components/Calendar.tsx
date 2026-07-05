@@ -2,17 +2,18 @@
 
 import { useEffect, useState } from 'react'
 import { MapPin } from 'lucide-react'
+import { USER_TZ } from '@/lib/dateKey'
 
 type CalEvent = {
   id: string
   title: string
-  start: string
-  end: string
+  start: string   // ISO timestamp, or YYYY-MM-DD when allDay
+  end: string     // ISO timestamp, or YYYY-MM-DD when allDay
   location?: string
   allDay: boolean
 }
 
-const TZ = process.env.NEXT_PUBLIC_USER_TIMEZONE ?? 'America/Los_Angeles'
+const TZ = USER_TZ
 
 function localDateKey(date: Date): string {
   return date.toLocaleDateString('en-CA', { timeZone: TZ })
@@ -57,7 +58,7 @@ export default function Calendar() {
   // Group events by local date key
   const byDay: Record<string, CalEvent[]> = {}
   for (const ev of events) {
-    const key = localDateKey(new Date(ev.start))
+    const key = ev.allDay ? ev.start.slice(0, 10) : localDateKey(new Date(ev.start))
     byDay[key] = [...(byDay[key] ?? []), ev]
   }
 

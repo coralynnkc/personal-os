@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Check } from 'lucide-react'
+import { toDateKey, USER_TZ } from '@/lib/dateKey'
 
 type Task = {
   id: string
@@ -172,7 +173,7 @@ export default function TodayTasks() {
                 </span>
               )}
               {(() => {
-                const today = new Date().toISOString().slice(0, 10)
+                const today = toDateKey(new Date(), USER_TZ)
                 const overdue = task.due_date && task.due_date < today
                 const label = overdue ? 'overdue' : task.due_date === today ? 'due today' : task.urgency
                 const color = (overdue || task.urgency === 'today') ? 'var(--danger)' : URGENCY_COLOR[task.urgency ?? ''] ?? 'var(--ink-4)'

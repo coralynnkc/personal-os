@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, X, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import { USER_TZ } from '@/lib/dateKey'
 
 function useMobile() {
   const [mobile, setMobile] = useState(false)
@@ -37,8 +38,7 @@ type Sort = 'priority' | 'due' | 'title' | 'points' | 'created'
 type Urgency = 'today' | 'week' | 'month' | 'someday'
 
 function localToday(): string {
-  const tz = process.env.NEXT_PUBLIC_USER_TIMEZONE ?? 'UTC'
-  return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date())
+  return new Intl.DateTimeFormat('en-CA', { timeZone: USER_TZ }).format(new Date())
 }
 
 function urgencyFromDate(due: string): Urgency {
@@ -252,8 +252,7 @@ function ForecastView({ tasks, onSelect, onComplete }: {
   for (let i = 0; i < 28; i++) {
     const d = new Date(startOfWeek)
     d.setDate(startOfWeek.getDate() + i)
-    const tz = process.env.NEXT_PUBLIC_USER_TIMEZONE ?? 'UTC'
-    days.push(new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(d))
+    days.push(new Intl.DateTimeFormat('en-CA', { timeZone: USER_TZ }).format(d))
   }
 
   const overdue = open.filter(t => t.due_date && t.due_date < today)

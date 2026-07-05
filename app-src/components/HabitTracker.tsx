@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, ChevronLeft, ChevronRight, X, Trash2 } from 'lucide-react'
-import { habitDateKey } from '@/lib/dateKey'
+import { habitDateKey, USER_TZ } from '@/lib/dateKey'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -56,7 +56,7 @@ function getLevelColor(monthHex: string, level: number, totalLevels: number): st
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
-const TZ = process.env.NEXT_PUBLIC_USER_TIMEZONE ?? 'America/Los_Angeles'
+const TZ = USER_TZ
 
 function localDateKey(): string {
   return habitDateKey(TZ)

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
+import { USER_TZ } from '@/lib/dateKey'
 
-const TZ = process.env.USER_TIMEZONE ?? 'America/Los_Angeles'
+const TZ = USER_TZ
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -13,7 +14,7 @@ export async function GET(req: Request) {
   if (year && month) {
     const monthPadded = month.padStart(2, '0')
     const startDate = `${year}-${monthPadded}-01`
-    const nextMonthDate = new Date(Number(year), Number(month), 1)
+    const nextMonthDate = new Date(Date.UTC(Number(year), Number(month), 1))
     const endDate = nextMonthDate.toISOString().slice(0, 10)
 
     const windowStart = new Date(`${startDate}T00:00:00Z`)

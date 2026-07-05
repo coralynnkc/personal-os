@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
+import { toDateKey, USER_TZ } from '@/lib/dateKey'
 
 const CAL_KEY = 'job_search_cal_v1'
 const IDS_KEY = 'job_search_ids_v1'
@@ -37,7 +38,7 @@ const MILESTONES: Record<string, string> = {
 type Task = { id: string; text: string; tag: string; points: number }
 
 function toDateStr(d: Date) {
-  return d.toISOString().slice(0, 10)
+  return toDateKey(d, USER_TZ)
 }
 
 function getPhase(d: Date): number {
@@ -59,9 +60,9 @@ function getLCPattern(d: Date): string {
 }
 
 function generateDayTasks(d: Date): Task[] {
-  const dow = d.getDay()
-  if (dow === 0) return []
   const s = toDateStr(d)
+  const dow = new Date(s + 'T12:00:00').getDay()
+  if (dow === 0) return []
   const phase = getPhase(d)
   const tasks: Task[] = []
 
