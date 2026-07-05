@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
+import { USER_TZ } from '@/lib/dateKey'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -22,8 +23,7 @@ export async function GET(req: Request) {
   }
 
   if (effectiveToday) {
-    const tz = process.env.USER_TIMEZONE ?? 'UTC'
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date())
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: USER_TZ }).format(new Date())
     query = query.or(`key.eq.true,urgency.eq.today,due_date.lte.${today}`)
   } else {
     if (urgency) query = query.eq('urgency', urgency)

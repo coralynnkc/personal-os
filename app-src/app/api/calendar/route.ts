@@ -4,8 +4,8 @@ import ICAL from 'ical.js'
 export type CalEvent = {
   id: string
   title: string
-  start: string   // ISO timestamp
-  end: string     // ISO timestamp
+  start: string   // ISO timestamp, or YYYY-MM-DD when allDay
+  end: string     // ISO timestamp, or YYYY-MM-DD when allDay
   location?: string
   allDay: boolean
 }
@@ -58,13 +58,17 @@ export async function GET() {
 
           if (!seen.has(id)) {
             seen.add(id)
+            // Date-only values keep their raw YYYY-MM-DD string — converting
+            // through a JS Date would pin them to server-time midnight and
+            // shift them a day for users west of the server.
+            const isDate = details.startDate.isDate
             events.push({
               id,
               title: event.summary,
-              start: jsStart.toISOString(),
-              end: jsEnd.toISOString(),
+              start: isDate ? details.startDate.toString() : jsStart.toISOString(),
+              end: isDate ? details.endDate.toString() : jsEnd.toISOString(),
               location: event.location || undefined,
-              allDay: details.startDate.isDate,
+              allDay: isDate,
             })
           }
         }
@@ -76,13 +80,14 @@ export async function GET() {
         const id = event.uid || `${event.summary}_${jsStart.toISOString()}`
         if (!seen.has(id)) {
           seen.add(id)
+          const isDate = event.startDate.isDate
           events.push({
             id,
             title: event.summary,
-            start: jsStart.toISOString(),
-            end: jsEnd.toISOString(),
+            start: isDate ? event.startDate.toString() : jsStart.toISOString(),
+            end: isDate ? event.endDate.toString() : jsEnd.toISOString(),
             location: event.location || undefined,
-            allDay: event.startDate.isDate,
+            allDay: isDate,
           })
         }
       }

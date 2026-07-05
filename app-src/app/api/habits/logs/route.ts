@@ -7,8 +7,8 @@ export async function GET(req: Request) {
   const month = String(searchParams.get('month') ?? new Date().getMonth() + 1).padStart(2, '0')
 
   const startDate = `${year}-${month}-01`
-  // end: first day of next month
-  const nextMonth = new Date(Number(year), Number(month), 1)
+  // end: first day of next month (UTC so toISOString can't shift the day)
+  const nextMonth = new Date(Date.UTC(Number(year), Number(month), 1))
   const endDate = nextMonth.toISOString().slice(0, 10)
 
   const { data, error } = await supabaseAdmin

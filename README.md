@@ -41,7 +41,7 @@ API_SECRET=                    # openssl rand -hex 16
 
 GOOGLE_CALENDAR_ICAL_URL=      # Calendar settings → "Secret address in iCal format" (optional)
 
-USER_TIMEZONE=America/Los_Angeles
+NEXT_PUBLIC_USER_TIMEZONE=America/Los_Angeles   # IANA name; used client- and server-side
 USER_ID=yourname
 ```
 

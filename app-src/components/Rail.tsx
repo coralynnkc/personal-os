@@ -3,12 +3,13 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { USER_TZ } from '@/lib/dateKey'
 
 function Clock() {
   const [display, setDisplay] = useState('')
 
   useEffect(() => {
-    const tz = process.env.NEXT_PUBLIC_USER_TIMEZONE ?? 'America/Los_Angeles'
+    const tz = USER_TZ
     const tick = () => {
       const now = new Date()
       const time = now.toLocaleTimeString('en-US', {

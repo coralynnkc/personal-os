@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
-import { habitDateKey, toDateKey } from '@/lib/dateKey'
+import { habitDateKey, toDateKey, USER_TZ } from '@/lib/dateKey'
 
-const TZ = process.env.USER_TIMEZONE ?? 'America/Los_Angeles'
+const TZ = USER_TZ
 
 async function upsertSleepField(date: string, patch: Record<string, unknown>) {
   const { data: existing } = await supabaseAdmin
