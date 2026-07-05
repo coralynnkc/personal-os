@@ -4,7 +4,12 @@ import { makeSessionCookie, COOKIE } from '@/lib/auth'
 export async function POST(req: NextRequest) {
   const { password } = await req.json()
 
-  if (password !== process.env.DASHBOARD_PASSWORD) {
+  const expected = process.env.DASHBOARD_PASSWORD
+  if (!expected) {
+    console.error('DASHBOARD_PASSWORD is not set — refusing all logins')
+    return NextResponse.json({ error: 'Server auth not configured' }, { status: 500 })
+  }
+  if (password !== expected) {
     return NextResponse.json({ error: 'Wrong password' }, { status: 401 })
   }
 
