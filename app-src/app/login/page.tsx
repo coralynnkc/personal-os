@@ -21,7 +21,11 @@ function LoginForm() {
     })
     setLoading(false)
     if (res.ok) {
-      router.push(params.get('from') ?? '/')
+      const from = params.get('from') ?? '/'
+      // Only follow same-origin paths: reject external URLs ("https://…"),
+      // protocol-relative ("//evil.com"), and backslash variants ("/\evil.com").
+      const isSafePath = from.startsWith('/') && !from.startsWith('//') && !from.startsWith('/\\')
+      router.push(isSafePath ? from : '/')
     } else {
       setError('Wrong password')
     }
