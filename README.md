@@ -33,7 +33,6 @@ Fill in:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=      # from your Supabase project dashboard
-SUPABASE_ANON_KEY=             # from Supabase → Settings → API
 SUPABASE_SERVICE_ROLE_KEY=     # from Supabase → Settings → API
 
 AUTH_SECRET=                   # openssl rand -hex 32
