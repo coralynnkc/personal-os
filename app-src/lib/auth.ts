@@ -1,11 +1,12 @@
-const SECRET = process.env.AUTH_SECRET ?? 'dev-secret-change-me'
 export const COOKIE = 'pos_session'
 const TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 async function getKey(): Promise<CryptoKey> {
+  const secret = process.env.AUTH_SECRET
+  if (!secret) throw new Error('AUTH_SECRET is not set — refusing to sign/verify sessions')
   return crypto.subtle.importKey(
     'raw',
-    new TextEncoder().encode(SECRET),
+    new TextEncoder().encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign', 'verify'],
