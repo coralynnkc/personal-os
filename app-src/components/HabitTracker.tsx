@@ -314,6 +314,8 @@ export default function HabitTracker() {
   }
 
   async function deleteHabit(id: string) {
+    const habit = habits.find(h => h.id === id)
+    if (!window.confirm(`Delete habit "${habit?.name ?? id}"?`)) return
     const next = habits.filter(h => h.id !== id)
     setHabits(next)
     await fetch('/api/habits/config', {

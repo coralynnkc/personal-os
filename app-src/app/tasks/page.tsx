@@ -493,7 +493,11 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
             {isCompleted ? 'Completed Task' : 'Edit Task'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <button onClick={() => onDelete(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)' }} title="Delete task">
+            <button
+              onClick={() => { if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id) }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)' }}
+              title="Delete task"
+            >
               <Trash2 size={14} />
             </button>
             <button onClick={handleClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)' }}>
@@ -734,6 +738,8 @@ function ManageProjectsModal({ onClose, onChange }: {
   }
 
   const remove = async (id: string) => {
+    const entity = entities.find(e => e.id === id)
+    if (!window.confirm(`Delete project "${entity?.name ?? id}"? Tasks keep existing but lose this project.`)) return
     await fetch(`/api/entities/${id}`, { method: 'DELETE' })
     setEntities(prev => prev.filter(e => e.id !== id))
     onChange()
