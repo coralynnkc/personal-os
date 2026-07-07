@@ -45,12 +45,15 @@ export default function TodayTasks() {
     e.stopPropagation()
     setCompleting(prev => new Set(prev).add(id))
     try {
-      await fetch(`/api/tasks/${id}`, {
+      const res = await fetch(`/api/tasks/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed_at: new Date().toISOString() }),
       })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setTasks(prev => prev.filter(t => t.id !== id))
+    } catch (err) {
+      console.error('Failed to complete task:', err)
     } finally {
       setCompleting(prev => { const s = new Set(prev); s.delete(id); return s })
     }
