@@ -1033,12 +1033,20 @@ function TasksInner() {
   const handleComplete = async (id: string) => {
     const now = new Date().toISOString()
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed_at: now } : t))
-    await fetch(`/api/tasks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ completed_at: now }),
-    })
-    new BroadcastChannel('pos-tasks').postMessage({ type: 'task_completed' })
+    try {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed_at: now }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const bc = new BroadcastChannel('pos-tasks')
+      bc.postMessage({ type: 'task_completed' })
+      bc.close()
+    } catch (err) {
+      console.error('Failed to complete task:', err)
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, completed_at: null } : t))
+    }
   }
 
   const handleSave = async (id: string, patch: Partial<Task>) => {
@@ -1054,18 +1062,32 @@ function TasksInner() {
   }
 
   const handleUncomplete = async (id: string) => {
+    const prevCompletedAt = tasks.find(t => t.id === id)?.completed_at ?? null
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed_at: null } : t))
-    await fetch(`/api/tasks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ completed_at: null }),
-    })
+    try {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed_at: null }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    } catch (err) {
+      console.error('Failed to reopen task:', err)
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, completed_at: prevCompletedAt } : t))
+    }
   }
 
   const handleDelete = async (id: string) => {
+    const removed = tasks.find(t => t.id === id)
     setSelectedTask(null)
     setTasks(prev => prev.filter(t => t.id !== id))
-    await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+    try {
+      const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    } catch (err) {
+      console.error('Failed to delete task:', err)
+      if (removed) setTasks(prev => [removed, ...prev])
+    }
   }
 
   const handleAdd = async (data: Partial<Task>) => {
