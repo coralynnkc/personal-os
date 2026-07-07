@@ -22,28 +22,3 @@ export default function Home() {
     </div>
   )
 }
-
-function PlaceholderCard({ label, height }: { label: string; height: number }) {
-  return (
-    <div style={{
-      background: 'var(--glass)',
-      border: '1px solid var(--glass-border)',
-      borderRadius: 'var(--radius)',
-      backdropFilter: 'blur(16px)',
-      overflow: 'hidden',
-      minHeight: height,
-    }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px 10px', borderBottom: '1px solid var(--glass-border)',
-      }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', color: 'var(--ink-4)', textTransform: 'uppercase' }}>
-          {label}
-        </span>
-      </div>
-      <div style={{ padding: '14px 16px', color: 'var(--ink-3)', fontSize: 11, fontStyle: 'italic' }}>
-        Coming soon…
-      </div>
-    </div>
-  )
-}

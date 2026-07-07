@@ -10,7 +10,7 @@ A single-page personal dashboard. Password-gated, self-hosted, built for one.
 |---|---|
 | **Today's Tasks** | Tasks scoped to today/this week, pulled from Supabase |
 | **Calendar** | 7-day strip synced from a Google Calendar iCal feed |
-| **Job Search** | CRM-style tracker for job applications |
+| **Job Search** | Daily prep checklist (LeetCode/system-design rhythm + application-wave milestones), stored in localStorage |
 | **Habit Tracker** | Configurable daily habits with multi-level completion |
 
 ## Stack
@@ -64,7 +64,7 @@ Push to GitHub and import into Vercel. Add the environment variables from step 2
 ```
 app-src/
   app/
-    api/          # API routes (auth, tasks, habits, calendar)
+    api/          # API routes (auth, tasks, entities, habits, calendar)
     login/        # Login page
     tasks/        # Full task list view
   components/     # Dashboard widgets

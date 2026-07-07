@@ -277,11 +277,11 @@ export default function HabitTracker() {
   async function handleSleep(event: 'bedtime' | 'waketime') {
     dirtyRef.current = true
     try {
-      const res = await fetch('/api/habits/sleep', {
+      await fetch('/api/habits/sleep', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event }),
-      }).then(r => r.json())
+      })
 
       // Refresh logs after sleep event
       dirtyRef.current = false
