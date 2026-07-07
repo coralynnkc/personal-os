@@ -1,10 +1,9 @@
 'use client'
 import { useState, FormEvent } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
 function LoginForm() {
-  const router = useRouter()
   const params = useSearchParams()
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
@@ -14,20 +13,32 @@ function LoginForm() {
     setLoading(true)
     setError('')
     const password = new FormData(e.currentTarget).get('password') as string
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    })
-    setLoading(false)
+    let res: Response
+    try {
+      res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
+    } catch {
+      setLoading(false)
+      setError('Network error — try again')
+      return
+    }
     if (res.ok) {
       const from = params.get('from') ?? '/'
       // Only follow same-origin paths: reject external URLs ("https://…"),
       // protocol-relative ("//evil.com"), and backslash variants ("/\evil.com").
       const isSafePath = from.startsWith('/') && !from.startsWith('//') && !from.startsWith('/\\')
-      router.push(isSafePath ? from : '/')
+      // Full page load, not router.push: while unauthenticated, the nav's Link
+      // prefetches cached the middleware redirect back to /login for protected
+      // routes, so a soft navigation can bounce straight back here. A document
+      // request re-runs middleware with the fresh session cookie.
+      // Keep `loading` true until the browser navigates away.
+      window.location.assign(isSafePath ? from : '/')
     } else {
-      setError('Wrong password')
+      setLoading(false)
+      setError(res.status === 401 ? 'Wrong password' : `Login failed (${res.status}) — try again`)
     }
   }
 
