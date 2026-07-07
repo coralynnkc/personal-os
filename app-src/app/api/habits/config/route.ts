@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
+import { parseJsonBody } from '@/lib/http'
 
 export async function GET() {
   const { data } = await supabaseAdmin
@@ -12,7 +13,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { habits } = await req.json()
+  const body = await parseJsonBody(req)
+  if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  const { habits } = body
 
   const { error } = await supabaseAdmin
     .from('habit_config')

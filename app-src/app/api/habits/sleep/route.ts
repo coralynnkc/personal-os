@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
+import { parseJsonBody } from '@/lib/http'
 import { habitDateKey, toDateKey, USER_TZ } from '@/lib/dateKey'
 
 const TZ = USER_TZ
@@ -24,7 +25,9 @@ async function upsertSleepField(date: string, patch: Record<string, unknown>) {
 }
 
 export async function POST(req: Request) {
-  const { event } = await req.json()
+  const body = await parseJsonBody(req)
+  if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  const { event } = body
   const now = new Date()
   const nowIso = now.toISOString()
 

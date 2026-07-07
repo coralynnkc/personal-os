@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
+import { parseJsonBody } from '@/lib/http'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -27,7 +28,12 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { date, habitId, level } = await req.json()
+  const body = await parseJsonBody(req)
+  if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  const { date, habitId, level } = body
+  if (typeof date !== 'string' || typeof habitId !== 'string') {
+    return NextResponse.json({ error: 'date and habitId required' }, { status: 400 })
+  }
 
   const { data: existing } = await supabaseAdmin
     .from('daily_logs')

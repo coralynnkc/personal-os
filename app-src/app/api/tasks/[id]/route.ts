@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
+import { parseJsonBody } from '@/lib/http'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const body = await req.json()
+  const body = await parseJsonBody(req)
+  if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
 
   const allowed = ['title', 'description', 'urgency', 'key', 'priority_score', 'points', 'tags', 'due_date', 'entity_id', 'owner', 'completed_at']
   const patch: Record<string, unknown> = {}
