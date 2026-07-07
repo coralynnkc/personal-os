@@ -32,6 +32,22 @@ export async function makeSessionCookie(): Promise<string> {
   return `${payload}.${sig}`
 }
 
+// Constant-time string comparison that works in both Node and Edge runtimes:
+// compare SHA-256 digests byte-by-byte so the timing of the comparison reveals
+// nothing about where the strings differ.
+export async function secretsEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder()
+  const [da, db] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(a)),
+    crypto.subtle.digest('SHA-256', enc.encode(b)),
+  ])
+  const ua = new Uint8Array(da)
+  const ub = new Uint8Array(db)
+  let diff = 0
+  for (let i = 0; i < ua.length; i++) diff |= ua[i] ^ ub[i]
+  return diff === 0
+}
+
 export async function verifySessionCookie(value: string): Promise<boolean> {
   const dot = value.lastIndexOf('.')
   if (dot < 0) return false

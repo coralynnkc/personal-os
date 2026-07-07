@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
+import { parseJsonBody } from '@/lib/http'
 import { USER_TZ } from '@/lib/dateKey'
 
 export async function GET(req: Request) {
@@ -41,7 +42,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const body = await req.json()
+  const body = await parseJsonBody(req)
+  if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   const { title, description, urgency, key, priority_score, points, tags, due_date, entity_id, owner, completed_at } = body
 
   if (!title) return NextResponse.json({ error: 'title required' }, { status: 400 })
