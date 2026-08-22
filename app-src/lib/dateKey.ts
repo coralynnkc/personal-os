@@ -1,7 +1,22 @@
-// Single source of truth for the user's timezone. NEXT_PUBLIC_ so client
-// bundles get it inlined; USER_TIMEZONE covers server-only configs.
-export const USER_TZ =
-  process.env.NEXT_PUBLIC_USER_TIMEZONE ?? process.env.USER_TIMEZONE ?? 'America/Los_Angeles'
+// Single source of truth for the user's timezone.
+//
+// In the browser we auto-detect from the device so the dashboard follows you
+// when you travel. On the server there is nothing to detect, so we fall back to
+// NEXT_PUBLIC_USER_TIMEZONE / USER_TIMEZONE (NEXT_PUBLIC_ so client bundles get
+// it inlined too, USER_TIMEZONE for server-only configs).
+const CONFIGURED_TZ =
+  process.env.NEXT_PUBLIC_USER_TIMEZONE ?? process.env.USER_TIMEZONE ?? 'America/New_York'
+
+function detectTz(): string {
+  if (typeof window === 'undefined') return CONFIGURED_TZ
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || CONFIGURED_TZ
+  } catch {
+    return CONFIGURED_TZ
+  }
+}
+
+export const USER_TZ = detectTz()
 
 const GRACE_HOUR = 4 // before 4am local time → still "yesterday" for habit purposes
 
