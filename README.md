@@ -11,6 +11,7 @@ A single-page personal dashboard. Password-gated, self-hosted, built for one.
 | **/** | Dashboard — today's tasks, calendar, habits |
 | **/tasks** | Full task list |
 | **/jobs** | Job search — application pipeline, company research, stale-portal queue |
+| **/week** | This week's plan, synced from the school planning docs |
 
 ### Dashboard widgets
 
@@ -44,6 +45,7 @@ Run the migrations in `app-src/supabase/migrations/` in your Supabase project's 
 - `0001_init.sql` — `tasks`, `entities`, `daily_logs`, `habit_config`, `audit_logs`
 - `0002_job_search.sql` — `applications` (the job-search pipeline)
 - `0003_pomodoro.sql` — `habit_config.pomodoro` (timer durations)
+- `0004_documents.sql` — `documents` (the synced week and semester planning docs)
 
 All tables have RLS enabled; access goes through the service role key in API routes.
 
@@ -108,6 +110,34 @@ node scripts/import-job-search.mjs                # write to Supabase
 
 Stage 1 promotes the things the spreadsheet stored as prose into real columns — the date inside `"Not open (checked Jul 10)"` becomes a `portal_last_checked` date, and the rest of that sentence becomes a constrained `status` — and prints every company link it made plus every row it could not match. Unmatched rows still import; link them by hand in the pipeline drawer.
 
+## Week plan
+
+`/week` renders the week document from `~/Documents/1-school/planning/` — today's
+day expanded, past days collapsed, future days showing their schedule without
+the prose — with the deadlines stated in the doc checked against real `tasks`
+rows.
+
+Those files live outside this repo and outside Vercel, so a local script parses
+them and writes the result to the `documents` table. The `.md` files stay the
+source of truth; nothing in the app writes back to them.
+
+```bash
+cd app-src
+node scripts/sync-planning-docs.mjs --dry-run --verbose   # print the parse, write nothing
+node scripts/sync-planning-docs.mjs                       # upsert into Supabase
+```
+
+Re-run it after editing a week doc. Parsing happens once, here, and the result
+is stored in `documents.parsed`: `days[]` with their schedule rows, the
+deadlines pulled out of the intro, and the thematic sections. The parser is
+deliberately lenient — anything it can't classify keeps its raw text and
+renders as written, because these are handwritten documents and dropping a row
+is worse than failing to structure it.
+
+The semester docs (`fall26_workload_plan.md`, `assignments_fall26.md`) sync too
+and render at `/week/<slug>`, so the week doc's `../fall26_workload_plan.md`
+references resolve in-app instead of dead-ending.
+
 ## MCP connector
 
 `/api/mcp` is a streamable-HTTP [MCP](https://modelcontextprotocol.io) endpoint, so Claude (claude.ai, desktop, mobile) can read and write the dashboard directly.
@@ -158,12 +188,14 @@ app-src/
     login/        # Login page
     tasks/        # Full task list view
     jobs/         # Job search — pipeline, targets, stale portals
+    week/         # Week plan — the current week, and a page per semester doc
   components/     # Dashboard widgets
     jobs/         # Job search tab components
     pomodoro/     # Rail timer, provider, task-row start button
+    week/         # Week tab — day sections, deadline strip, long-form doc view
   lib/            # Supabase client, auth helpers, job-search domain types
     mcp/          # MCP tool definitions and argument validation
-  scripts/        # One-off maintenance scripts (spreadsheet import)
+  scripts/        # Maintenance scripts (spreadsheet import, planning-doc sync)
   supabase/
     migrations/   # DB schema
 design/
