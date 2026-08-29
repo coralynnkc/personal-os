@@ -2,9 +2,15 @@
 
 import type { CSSProperties, ReactNode } from 'react'
 
-// The card chrome that the four dashboard widgets each copy-paste. Collected
-// here so the /jobs tab states it once; the wider refactor of the existing
-// widgets is tracked separately.
+// The shared chrome. This started as a place to stop the /jobs tab
+// copy-pasting the dashboard's card styles; it is now the design vocabulary,
+// and new code should reach for these before writing a style object.
+//
+// Anything that can be a real CSS class lives in globals.css instead —
+// `.card`, `.tile`, `.chip`, `.tap`, `.panel-title` — because inline styles
+// cannot express :hover or :active, which is why most of this app's buttons
+// used to be visually inert.
+
 export const cardStyle: CSSProperties = {
   background: 'var(--glass)',
   border: '1px solid var(--glass-border)',
@@ -13,24 +19,27 @@ export const cardStyle: CSSProperties = {
   overflow: 'hidden',
 }
 
+/**
+ * The quiet label opposite a heading — a count, a status, a unit. Headings
+ * themselves use `className="panel-title"` (or `section-title`), which is
+ * bigger and brighter; this is deliberately the other half of that pair.
+ */
 export const labelStyle: CSSProperties = {
-  fontFamily: 'var(--font-mono)',
-  fontSize: 11,
-  letterSpacing: '0.12em',
+  fontSize: 'var(--text-sm)',
+  fontWeight: 500,
   color: 'var(--ink-4)',
-  textTransform: 'uppercase',
 }
 
 export function Panel({
   title, right, children, style,
 }: { title: ReactNode; right?: ReactNode; children: ReactNode; style?: CSSProperties }) {
   return (
-    <div style={{ ...cardStyle, ...style }}>
+    <div className="card" style={style}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 12, padding: '12px 16px 10px', borderBottom: '1px solid var(--glass-border)',
+        gap: 12, padding: '14px 18px 12px',
       }}>
-        <span style={labelStyle}>{title}</span>
+        <span className="panel-title">{title}</span>
         {right}
       </div>
       {children}
@@ -49,23 +58,22 @@ export function ErrorRow({ message, onRetry }: { message: string; onRetry?: () =
       role="alert"
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 12, padding: '10px 12px', margin: '8px 12px',
+        gap: 12, padding: '11px 14px', margin: '8px 14px',
         borderRadius: 'var(--radius-sm)',
-        border: '1px solid var(--danger)',
-        background: 'oklch(0.65 0.20 25 / 0.12)',
-        fontSize: 13, color: 'var(--ink-6)',
+        background: 'var(--danger-dim)',
+        fontSize: 'var(--text-base)', color: 'var(--ink-6)',
       }}
     >
       <span>{message}</span>
       {onRetry && (
         <button
+          className="tap"
           onClick={onRetry}
           style={{
-            flexShrink: 0, cursor: 'pointer', fontSize: 11,
-            fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
-            letterSpacing: '0.08em', color: 'var(--ink-6)',
+            flexShrink: 0, cursor: 'pointer', fontSize: 'var(--text-sm)',
+            fontWeight: 500, color: 'var(--danger)',
             background: 'transparent', border: '1px solid var(--danger)',
-            borderRadius: 6, padding: '3px 10px',
+            borderRadius: 999, padding: '3px 12px',
           }}
         >
           Retry
@@ -77,19 +85,23 @@ export function ErrorRow({ message, onRetry }: { message: string; onRetry?: () =
 
 export function Empty({ children }: { children: ReactNode }) {
   return (
-    <div style={{ fontSize: 13, color: 'var(--ink-3)', fontStyle: 'italic', padding: '10px 16px' }}>
+    <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink-3)', padding: '12px 18px' }}>
       {children}
     </div>
   )
 }
 
-export function Pill({ color, children }: { color: string; children: ReactNode }) {
+/**
+ * A chip is a soft fill, never an outline. The rows these sit on already have
+ * a card edge and a checkbox; a bordered chip made a five-rectangle row out of
+ * what is really one task.
+ */
+export function Pill({ color, mono, children }: { color: string; mono?: boolean; children: ReactNode }) {
   return (
-    <span style={{
-      fontSize: 11, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
-      textTransform: 'uppercase', color, border: `1px solid ${color}`,
-      borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap', flexShrink: 0,
-    }}>
+    <span
+      className={mono ? 'chip chip-num' : 'chip'}
+      style={{ color, background: `color-mix(in oklch, ${color} 16%, transparent)` }}
+    >
       {children}
     </span>
   )
@@ -97,10 +109,11 @@ export function Pill({ color, children }: { color: string; children: ReactNode }
 
 export const buttonStyle: CSSProperties = {
   cursor: 'pointer',
-  fontSize: 12,
+  fontSize: 'var(--text-sm)',
+  fontWeight: 500,
   color: 'var(--ink-5)',
   background: 'var(--ink-1)',
   border: '1px solid var(--glass-border)',
-  borderRadius: 6,
-  padding: '5px 10px',
+  borderRadius: 999,
+  padding: '6px 14px',
 }

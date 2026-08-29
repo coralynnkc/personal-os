@@ -39,7 +39,7 @@ function Row({ row, clash }: { row: WeekRow; clash: boolean }) {
       borderLeft: `2px solid ${clash ? 'var(--danger)' : row.meeting ? 'var(--accent-border)' : 'transparent'}`,
     }}>
       <span style={{
-        fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.04em',
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)',
         color: row.kind === 'timed' ? 'var(--ink-5)' : 'var(--ink-4)',
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
@@ -49,8 +49,7 @@ function Row({ row, clash }: { row: WeekRow; clash: boolean }) {
         <Markdown md={row.rawWhat} compact />
         {clash && (
           <span style={{
-            marginLeft: 8, fontFamily: 'var(--font-mono)', fontSize: 11,
-            letterSpacing: '0.06em', color: 'var(--danger)',
+            marginLeft: 8, fontSize: 'var(--text-sm)', color: 'var(--danger)',
           }}>
             overlaps
           </span>
@@ -104,15 +103,11 @@ export default function DaySection({
           {day.heading}
         </span>
         {isToday && (
-          <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
-            textTransform: 'uppercase', color: 'var(--accent)',
-            border: '1px solid var(--accent-border)', borderRadius: 4, padding: '1px 6px',
-          }}>
+          <span className="chip" style={{ color: 'var(--accent)', background: 'var(--accent-dim)' }}>
             today
           </span>
         )}
-        <span style={{ marginLeft: 'auto', display: 'flex', gap: 12, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-4)' }}>
+        <span className="meta" style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
           {day.rows.length > 0 && <span>{day.rows.length} rows</span>}
           <span>{formatHours(minutes)}</span>
         </span>
@@ -138,11 +133,10 @@ export default function DaySection({
               <button
                 onClick={() => setShowProse(true)}
                 style={{
-                  marginTop: 10, fontFamily: 'var(--font-mono)', fontSize: 11,
-                  letterSpacing: '0.06em', textTransform: 'uppercase',
-                  color: 'var(--ink-4)', background: 'transparent',
-                  border: '1px solid var(--glass-border)', borderRadius: 6,
-                  padding: '4px 10px', cursor: 'pointer',
+                  marginTop: 10, fontSize: 'var(--text-sm)', fontWeight: 500,
+                  color: 'var(--ink-4)', background: 'var(--ink-1)',
+                  border: 'none', borderRadius: 999,
+                  padding: '5px 13px', cursor: 'pointer',
                 }}
               >
                 Show the reasoning

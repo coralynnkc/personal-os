@@ -72,11 +72,11 @@ function DescriptionTooltip({ anchor, text }: { anchor: HTMLElement; text: strin
         position: 'fixed', top: pos.top, left: pos.left, width: pos.width,
         maxHeight: `calc(100vh - ${pos.top + TOOLTIP_INSET}px)`, overflowY: 'auto',
         zIndex: 60, pointerEvents: 'none',
-        padding: '6px 8px', borderRadius: 6,
-        background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
+        padding: '8px 11px', borderRadius: 'var(--radius-xs)',
+        background: 'var(--ink-2)', border: '1px solid var(--glass-border)',
         backdropFilter: 'blur(16px)',
-        boxShadow: '0 6px 18px oklch(0 0 0 / 0.35)',
-        fontSize: 11, lineHeight: 1.4, color: 'var(--ink-5)',
+        boxShadow: '0 8px 24px oklch(0 0 0 / 0.4)',
+        fontSize: 'var(--text-sm)', lineHeight: 1.5, color: 'var(--ink-5)',
         whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
       }}
     >
@@ -139,50 +139,40 @@ export default function TodayTasks() {
   }
 
   return (
-    <div style={{
-      background: 'var(--glass)',
-      border: '1px solid var(--glass-border)',
-      borderRadius: 'var(--radius)',
-      backdropFilter: 'blur(16px)',
-      overflow: 'hidden',
-      minHeight: 160,
-    }}>
-      {/* Header */}
+    <div className="card" style={{ minHeight: 160 }}>
+      {/* Header. The divider under it is gone — the padding does that job, and
+          three stacked widgets with ruled headers read as a form. */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px 10px', borderBottom: '1px solid var(--glass-border)',
+        padding: '14px 18px 8px',
       }}>
-        <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 10,
-          letterSpacing: '0.14em', color: 'var(--ink-4)', textTransform: 'uppercase',
-        }}>
-          Today's Key Tasks
-        </span>
+        <span className="panel-title">Today</span>
         <button
+          className="tap"
           onClick={() => router.push('/tasks')}
           style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 3,
-            fontSize: 10, fontFamily: 'var(--font-mono)',
+            background: 'none', border: 'none', cursor: 'pointer', borderRadius: 999,
+            color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 4,
+            fontSize: 'var(--text-sm)', padding: '3px 8px',
           }}
         >
-          All <ArrowRight size={11} />
+          All <ArrowRight size={13} />
         </button>
       </div>
 
       {/* Body */}
-      <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ padding: '2px 12px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
         {error && <ErrorRow message={error} onRetry={load} />}
 
         {loading && !error && (
-          <div style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic', padding: '6px 4px' }}>
+          <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink-3)', padding: '8px 6px' }}>
             Loading…
           </div>
         )}
 
         {!loading && !error && tasks.length === 0 && (
-          <div style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic', padding: '6px 4px' }}>
-            No key tasks for today.
+          <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink-3)', padding: '8px 6px' }}>
+            Nothing scheduled for today — enjoy it.
           </div>
         )}
 
@@ -192,7 +182,7 @@ export default function TodayTasks() {
             onMouseEnter={e => setHovered({ id: task.id, el: e.currentTarget })}
             onMouseLeave={() => setHovered(h => (h?.id === task.id ? null : h))}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6, position: 'relative',
+              display: 'flex', alignItems: 'center', gap: 7, position: 'relative',
             }}
           >
             {/* Complete button */}
@@ -200,31 +190,19 @@ export default function TodayTasks() {
               onClick={e => completeTask(e, task.id)}
               disabled={completing.has(task.id)}
               title="Mark complete" aria-label="Mark complete"
+              className="tap"
               style={{
                 flexShrink: 0,
-                width: 18, height: 18,
-                borderRadius: 4,
-                border: '1px solid var(--ink-3)',
+                width: 20, height: 20,
+                borderRadius: 999,
+                border: '1.5px solid var(--ink-3)',
                 background: completing.has(task.id) ? 'var(--accent)' : 'transparent',
                 cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: 'var(--accent)',
-                transition: 'background 0.12s, border-color 0.12s',
-              }}
-              onMouseEnter={e => {
-                if (!completing.has(task.id)) {
-                  e.currentTarget.style.background = 'var(--accent-dim)'
-                  e.currentTarget.style.borderColor = 'var(--accent)'
-                }
-              }}
-              onMouseLeave={e => {
-                if (!completing.has(task.id)) {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.borderColor = 'var(--ink-3)'
-                }
               }}
             >
-              {completing.has(task.id) && <Check size={11} strokeWidth={3} color="var(--bg)" />}
+              {completing.has(task.id) && <Check size={12} strokeWidth={3} color="var(--ink-0)" />}
             </button>
 
             {/* Start a focus session on this task */}
@@ -233,27 +211,21 @@ export default function TodayTasks() {
             {/* Task row */}
             <button
               onClick={() => openTask(task.id)}
+              className="tile"
               style={{
                 flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 10px', borderRadius: 7,
-                background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
-                cursor: 'pointer', textAlign: 'left',
-                transition: 'border-color 0.15s', minWidth: 0,
+                padding: '9px 12px',
+                cursor: 'pointer', textAlign: 'left', minWidth: 0,
               }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--ink-3)')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--glass-border)')}
             >
-              <span style={{ color: 'var(--accent)', fontSize: 10, flexShrink: 0 }}>★</span>
-              <span style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--ink-6)', lineHeight: 1.3, overflowWrap: 'anywhere' }}>
+              <span style={{ color: 'var(--accent)', fontSize: 'var(--text-sm)', flexShrink: 0 }}>★</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-base)', color: 'var(--ink-6)', lineHeight: 1.4, overflowWrap: 'anywhere' }}>
                 {task.title}
               </span>
+              {/* Points are a bare number in the gutter, not a chip. They rank
+                  the row; they don't need to be boxed to do that. */}
               {task.points != null && (
-                <span style={{
-                  fontSize: 10, fontFamily: 'var(--font-mono)',
-                  color: 'var(--accent)', background: 'var(--accent-dim)',
-                  border: '1px solid var(--accent-border)',
-                  borderRadius: 4, padding: '1px 5px', flexShrink: 0,
-                }}>
+                <span className="meta" style={{ color: 'var(--ink-4)', flexShrink: 0 }}>
                   {task.points}pt
                 </span>
               )}
@@ -262,11 +234,10 @@ export default function TodayTasks() {
                 if (!due) return null
                 const color = TONE_COLOR[due.tone]
                 return (
-                  <span style={{
-                    fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.04em',
-                    color, border: `1px solid ${color}`,
-                    borderRadius: 4, padding: '1px 5px', flexShrink: 0,
-                  }}>
+                  <span
+                    className="chip"
+                    style={{ color, background: `color-mix(in oklch, ${color} 15%, transparent)` }}
+                  >
                     {due.text}
                   </span>
                 )

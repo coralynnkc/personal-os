@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, X, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { USER_TZ } from '@/lib/dateKey'
 import StartFocusButton from '@/components/pomodoro/StartFocusButton'
+import { ErrorRow } from '@/components/jobs/ui'
 import {
   localToday, dueLabel, tagFrequency, displayTags, tagColor, TONE_COLOR,
   EMPTY_TAG_FREQ, type TagFreq,
@@ -91,17 +92,19 @@ function cardShell(extra?: React.CSSProperties): React.CSSProperties {
   }
 }
 
+/**
+ * A chip is a soft fill on a pill, never an outline. A card here carries a
+ * date chip and up to two tags on top of its own edge and a checkbox — at
+ * thirty cards on screen, outlining each one turned the board into a grid of
+ * boxes inside boxes. Colour and shape carry it without the stroke.
+ *
+ * Callers pair this with `className="chip"`, which owns size, radius and
+ * padding; only colour varies here.
+ */
 function chip(color: string): React.CSSProperties {
   return {
-    fontSize: 10,
-    fontFamily: 'var(--font-mono)',
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase' as const,
     color,
-    border: `1px solid ${color}`,
-    borderRadius: 4,
-    padding: '1px 5px',
-    whiteSpace: 'nowrap' as const,
+    background: `color-mix(in oklch, ${color} 15%, transparent)`,
   }
 }
 
@@ -111,21 +114,12 @@ function chip(color: string): React.CSSProperties {
  */
 function tagChip(tag: string): React.CSSProperties {
   const c = tagColor(tag)
-  return {
-    fontSize: 10,
-    fontFamily: 'var(--font-mono)',
-    color: c.fg,
-    background: c.bg,
-    border: `1px solid ${c.border}`,
-    borderRadius: 4,
-    padding: '1px 6px',
-    whiteSpace: 'nowrap' as const,
-  }
+  return { color: c.fg, background: c.bg }
 }
 
-/** Date chips are read, not scanned, so they lose the uppercase treatment too. */
+/** Kept as a distinct name because the date chip is the one that changes tone. */
 function dateChip(color: string): React.CSSProperties {
-  return { ...chip(color), textTransform: 'none' as const, letterSpacing: '0.04em' }
+  return chip(color)
 }
 
 /**
@@ -147,13 +141,13 @@ function TaskMeta({ task, hideDue }: { task: Task; hideDue?: string }) {
   const { shown, hidden } = displayTags(task.tags, freq)
   if (!due && shown.length === 0) return null
   return (
-    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', paddingLeft: 24 }}>
-      {due && <span style={dateChip(TONE_COLOR[due.tone])}>{due.text}</span>}
+    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', paddingLeft: 32 }}>
+      {due && <span className="chip" style={dateChip(TONE_COLOR[due.tone])}>{due.text}</span>}
       {shown.map(t => (
-        <span key={t} style={tagChip(t)}>{t}</span>
+        <span key={t} className="chip" style={tagChip(t)}>{t}</span>
       ))}
       {hidden.length > 0 && (
-        <span style={{ ...chip('var(--ink-3)'), textTransform: 'none' }} title={hidden.join(', ')}>
+        <span className="chip" style={chip('var(--ink-3)')} title={hidden.join(', ')}>
           +{hidden.length}
         </span>
       )}
@@ -170,42 +164,35 @@ function TaskCard({ task, onClick, onComplete, hideDue }: {
 }) {
   return (
     <div
+      className="tile"
       onClick={onClick}
       style={{
-        background: 'var(--ink-1)',
-        border: '1px solid var(--glass-border)',
-        borderRadius: 8,
-        padding: '10px 12px',
+        padding: '11px 13px',
         cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
-        gap: 6,
-        transition: 'border-color 0.15s',
+        gap: 7,
       }}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--ink-3)')}
-      onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--glass-border)')}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
         <button
+          className="tap"
           onClick={e => { e.stopPropagation(); onComplete(task.id) }}
           style={{
-            width: 28, height: 28, borderRadius: 6, border: '1px solid var(--ink-3)',
+            width: 23, height: 23, borderRadius: 999, border: '1.5px solid var(--ink-3)',
             background: 'transparent', cursor: 'pointer', flexShrink: 0,
-            padding: 0,
+            padding: 0, marginTop: 1,
           }}
           title="Complete task" aria-label="Complete task"
         />
-        <span style={{ fontSize: 12, color: 'var(--ink-6)', lineHeight: 1.4, flex: 1 }}>
-          {isEffectivelyKey(task) && <span style={{ color: 'var(--accent)', marginRight: 4 }}>★</span>}
+        <span style={{ fontSize: 'var(--text-base)', color: 'var(--ink-6)', lineHeight: 1.45, flex: 1 }}>
+          {isEffectivelyKey(task) && <span style={{ color: 'var(--accent)', marginRight: 5 }}>★</span>}
           {task.title}
         </span>
+        {/* Points sit in the gutter as a plain number — they rank the card,
+            they don't need a box to do it. */}
         {task.points != null && (
-          <span style={{
-            fontSize: 10, fontFamily: 'var(--font-mono)',
-            color: 'var(--accent)', background: 'var(--accent-dim)',
-            border: '1px solid var(--accent-border)', borderRadius: 4,
-            padding: '1px 6px', flexShrink: 0,
-          }}>
+          <span className="meta" style={{ color: 'var(--ink-4)', flexShrink: 0, marginTop: 2 }}>
             {task.points}pt
           </span>
         )}
@@ -236,19 +223,19 @@ function KanbanView({ tasks, onSelect, onComplete }: {
           <div key={tier} style={{ ...cardShell(), flex: '1 1 220px', minWidth: 200 }}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '10px 14px 8px', borderBottom: '1px solid var(--glass-border)',
+              padding: '13px 16px 9px',
             }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: URGENCY_COLORS[tier] }}>
+              <span className="section-title" style={{ color: URGENCY_COLORS[tier] }}>
                 {URGENCY_LABELS[tier]}
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-3)' }}>{tierTasks.length}</span>
+              <span className="meta">{tierTasks.length}</span>
             </div>
             <div style={{ padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 6, minHeight: 80 }}>
               {tierTasks.map(t => (
                 <TaskCard key={t.id} task={t} onClick={() => onSelect(t)} onComplete={onComplete} hideDue={tier === 'today' ? 'today' : undefined} />
               ))}
               {tierTasks.length === 0 && (
-                <div style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic', padding: '4px 2px' }}>Empty</div>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)', padding: '4px 4px' }}>Nothing here</div>
               )}
             </div>
           </div>
@@ -261,16 +248,15 @@ function KanbanView({ tasks, onSelect, onComplete }: {
             onClick={() => setDoneOpen(v => !v)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-              padding: '10px 14px 8px', background: 'transparent', border: 'none',
-              borderBottom: doneOpen ? '1px solid var(--glass-border)' : 'none',
+              padding: '13px 16px 9px', background: 'transparent', border: 'none',
               cursor: 'pointer',
             }}
           >
-            {doneOpen ? <ChevronDown size={12} color="var(--ink-4)" /> : <ChevronRight size={12} color="var(--ink-4)" />}
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ok)' }}>
+            {doneOpen ? <ChevronDown size={14} color="var(--ink-4)" /> : <ChevronRight size={14} color="var(--ink-4)" />}
+            <span className="section-title" style={{ color: 'var(--ok)' }}>
               Done
             </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-3)', marginLeft: 'auto' }}>{done.length}</span>
+            <span className="meta" style={{ marginLeft: 'auto' }}>{done.length}</span>
           </button>
           {doneOpen && (
             <div style={{ padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -328,8 +314,8 @@ function ForecastView({ tasks, onSelect, onComplete }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {overdue.length > 0 && (
         <div style={cardShell()}>
-          <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid var(--glass-border)' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--danger)' }}>
+          <div style={{ padding: '13px 16px 9px' }}>
+            <span className="section-title" style={{ color: 'var(--danger)' }}>
               Overdue
             </span>
           </div>
@@ -353,11 +339,10 @@ function ForecastView({ tasks, onSelect, onComplete }: {
               outline: isToday ? '1px solid var(--accent)' : 'none',
             }}>
               <div style={{
-                padding: '6px 8px 4px',
-                borderBottom: '1px solid var(--glass-border)',
+                padding: '8px 10px 6px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', color: isToday ? 'var(--accent)' : 'var(--ink-4)', textTransform: 'uppercase' }}>
+                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: isToday ? 'var(--accent)' : 'var(--ink-4)' }}>
                   {dayLabel(d)}
                 </span>
                 {dayTasks.length > 0 && (
@@ -370,8 +355,8 @@ function ForecastView({ tasks, onSelect, onComplete }: {
                     key={t.id}
                     onClick={() => onSelect(t)}
                     style={{
-                      fontSize: 10, color: 'var(--ink-5)', cursor: 'pointer', padding: '2px 4px',
-                      borderRadius: 4, lineHeight: 1.3,
+                      fontSize: 'var(--text-xs)', color: 'var(--ink-5)', cursor: 'pointer', padding: '2px 4px',
+                      borderRadius: 6, lineHeight: 1.3,
                       display: 'flex', alignItems: 'center', gap: 4,
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--ink-1)')}
@@ -384,7 +369,7 @@ function ForecastView({ tasks, onSelect, onComplete }: {
                         background: 'transparent', cursor: 'pointer', flexShrink: 0,
                       }}
                     />
-                    {isEffectivelyKey(t) && <span style={{ color: 'var(--accent)', fontSize: 9 }}>★</span>}
+                    {isEffectivelyKey(t) && <span style={{ color: 'var(--accent)', fontSize: 'var(--text-xs)' }}>★</span>}
                     {t.title}
                   </div>
                 ))}
@@ -396,9 +381,9 @@ function ForecastView({ tasks, onSelect, onComplete }: {
 
       {noDueDate.length > 0 && (
         <div style={cardShell()}>
-          <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid var(--glass-border)' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
-              No Due Date
+          <div style={{ padding: '13px 16px 9px' }}>
+            <span className="section-title" style={{ color: 'var(--ink-4)' }}>
+              No due date
             </span>
           </div>
           <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -439,14 +424,14 @@ function CategoryView({ tasks, entities, onSelect, onComplete }: {
         return (
           <div key={eid} style={cardShell()}>
             <div style={{
-              padding: '10px 14px 8px', borderBottom: '1px solid var(--glass-border)',
+              padding: '13px 16px 9px',
               display: 'flex', alignItems: 'center', gap: 8,
             }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-5)' }}>
+              <span className="section-title">
                 {label}
               </span>
-              {kind && <span style={chip('var(--ink-3)')}>{kind}</span>}
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-3)', marginLeft: 'auto' }}>
+              {kind && <span className="chip" style={chip('var(--ink-3)')}>{kind}</span>}
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--ink-3)', marginLeft: 'auto' }}>
                 {grouped[eid].length}
               </span>
             </div>
@@ -459,7 +444,7 @@ function CategoryView({ tasks, entities, onSelect, onComplete }: {
         )
       })}
       {entityIds.length === 0 && (
-        <div style={{ ...cardShell(), padding: '20px 16px', color: 'var(--ink-3)', fontSize: 11, fontStyle: 'italic' }}>
+        <div style={{ ...cardShell(), padding: '20px 16px', color: 'var(--ink-3)', fontSize: 'var(--text-sm)', fontStyle: 'italic' }}>
           No open tasks.
         </div>
       )}
@@ -503,15 +488,16 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
 
   const inputStyle: React.CSSProperties = {
     background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
-    borderRadius: 6, color: 'var(--ink-6)', fontSize: 12, padding: '7px 10px',
+    borderRadius: 'var(--radius-xs)', color: 'var(--ink-6)',
+    fontSize: 'var(--text-base)', padding: '9px 11px',
     width: '100%', boxSizing: 'border-box', fontFamily: 'inherit',
     outline: 'none',
   }
   const labelStyle: React.CSSProperties = {
-    fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.12em',
-    textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 4, display: 'block',
+    fontSize: 'var(--text-sm)', fontWeight: 500,
+    color: 'var(--ink-4)', marginBottom: 5, display: 'block',
   }
-  const rowStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4 }
+  const rowStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5 }
 
   const isCompleted = !!task.completed_at
 
@@ -544,8 +530,8 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '14px 16px', borderBottom: '1px solid var(--glass-border)', flexShrink: 0,
         }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
-            {isCompleted ? 'Completed Task' : 'Edit Task'}
+          <span className="panel-title">
+            {isCompleted ? 'Completed task' : 'Edit task'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
@@ -580,8 +566,8 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
             <div style={rowStyle}>
               <label style={labelStyle}>Urgency</label>
               {form.due_date ? (
-                <div style={{ ...inputStyle, color: URGENCY_COLORS[urgencyFromDate(form.due_date)], fontSize: 11, display: 'flex', alignItems: 'center' }}>
-                  {URGENCY_LABELS[urgencyFromDate(form.due_date)]} <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--ink-3)' }}>from due date</span>
+                <div style={{ ...inputStyle, color: URGENCY_COLORS[urgencyFromDate(form.due_date)], fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center' }}>
+                  {URGENCY_LABELS[urgencyFromDate(form.due_date)]} <span style={{ marginLeft: 6, fontSize: 'var(--text-xs)', color: 'var(--ink-3)' }}>from due date</span>
                 </div>
               ) : (
                 <select style={inputStyle} value={form.urgency ?? 'someday'} onChange={e => set('urgency', e.target.value)}>
@@ -612,7 +598,7 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
                     onClick={() => set('due_date', null)}
                     title="Clear date" aria-label="Clear date"
                     style={{
-                      flexShrink: 0, padding: '0 8px', borderRadius: 6,
+                      flexShrink: 0, padding: '0 8px', borderRadius: 'var(--radius-xs)',
                       border: '1px solid var(--glass-border)', background: 'transparent',
                       color: 'var(--ink-4)', cursor: 'pointer', fontSize: 14, lineHeight: 1,
                     }}
@@ -660,20 +646,20 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
                 onChange={e => set('key', e.target.checked)}
                 style={{ width: 14, height: 14, accentColor: 'var(--accent)' }}
               />
-              <span style={{ fontSize: 11, color: 'var(--ink-5)' }}>Key task ★</span>
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-5)' }}>Key task ★</span>
             </label>
           </div>
 
           {isCompleted && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 11, color: 'var(--ok)', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ok)', fontFamily: 'var(--font-mono)' }}>
                 Completed {new Date(task.completed_at!).toLocaleDateString()}
               </span>
               <button
                 onClick={() => { onUncomplete(task.id); onClose() }}
                 style={{
-                  fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
-                  padding: '3px 10px', borderRadius: 5,
+                  fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+                  padding: '3px 10px', borderRadius: 'var(--radius-xs)',
                   border: '1px solid var(--glass-border)',
                   background: 'transparent', color: 'var(--ink-4)', cursor: 'pointer',
                 }}
@@ -738,9 +724,9 @@ function ProjectSelect({ entities, value, onChange, onCreated, inputStyle }: {
           onClick={create}
           disabled={saving || !name.trim()}
           style={{
-            padding: '0 10px', borderRadius: 6, border: 'none',
+            padding: '0 10px', borderRadius: 'var(--radius-xs)', border: 'none',
             background: 'var(--accent)', color: '#000', fontWeight: 600,
-            fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
+            fontSize: 'var(--text-sm)', cursor: 'pointer', whiteSpace: 'nowrap',
             opacity: saving || !name.trim() ? 0.6 : 1,
           }}
         >
@@ -748,7 +734,7 @@ function ProjectSelect({ entities, value, onChange, onCreated, inputStyle }: {
         </button>
         <button
           onClick={() => setAdding(false)}
-          style={{ padding: '0 8px', borderRadius: 6, border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--ink-4)', cursor: 'pointer' }}
+          style={{ padding: '0 8px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--ink-4)', cursor: 'pointer' }}
         >
           ✕
         </button>
@@ -766,7 +752,7 @@ function ProjectSelect({ entities, value, onChange, onCreated, inputStyle }: {
         onClick={() => setAdding(true)}
         title="New project" aria-label="New project"
         style={{
-          padding: '0 8px', borderRadius: 6, border: '1px solid var(--glass-border)',
+          padding: '0 8px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--glass-border)',
           background: 'transparent', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 14, lineHeight: 1,
         }}
       >
@@ -816,7 +802,7 @@ function ManageProjectsModal({ onClose, onChange }: {
 
   const inputStyle: React.CSSProperties = {
     background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
-    borderRadius: 6, color: 'var(--ink-6)', fontSize: 12, padding: '5px 8px',
+    borderRadius: 'var(--radius-xs)', color: 'var(--ink-6)', fontSize: 'var(--text-base)', padding: '5px 8px',
     outline: 'none', flex: 1,
   }
 
@@ -833,11 +819,11 @@ function ManageProjectsModal({ onClose, onChange }: {
         zIndex: 61, display: 'flex', flexDirection: 'column',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--glass-border)', flexShrink: 0 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>Manage Projects</span>
+          <span className="panel-title">Manage projects</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)' }}><X size={14} /></button>
         </div>
         <div style={{ overflowY: 'auto', padding: '10px 16px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {active.length === 0 && <div style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic', padding: '8px 0' }}>No projects yet.</div>}
+          {active.length === 0 && <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)', fontStyle: 'italic', padding: '8px 0' }}>No projects yet.</div>}
           {active.map(e => (
             <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0' }}>
               {editingId === e.id ? (
@@ -847,15 +833,15 @@ function ManageProjectsModal({ onClose, onChange }: {
                     onChange={ev => setEditName(ev.target.value)}
                     onKeyDown={ev => { if (ev.key === 'Enter') saveEdit(e.id); if (ev.key === 'Escape') setEditingId(null) }}
                   />
-                  <button onClick={() => saveEdit(e.id)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 5, border: 'none', background: 'var(--accent)', color: '#000', cursor: 'pointer', fontWeight: 600 }}>Save</button>
-                  <button onClick={() => setEditingId(null)} style={{ fontSize: 11, padding: '4px 8px', borderRadius: 5, border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--ink-4)', cursor: 'pointer' }}>✕</button>
+                  <button onClick={() => saveEdit(e.id)} style={{ fontSize: 'var(--text-sm)', padding: '4px 10px', borderRadius: 'var(--radius-xs)', border: 'none', background: 'var(--accent)', color: '#000', cursor: 'pointer', fontWeight: 600 }}>Save</button>
+                  <button onClick={() => setEditingId(null)} style={{ fontSize: 'var(--text-sm)', padding: '4px 8px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--ink-4)', cursor: 'pointer' }}>✕</button>
                 </>
               ) : (
                 <>
-                  <span style={{ flex: 1, fontSize: 12, color: 'var(--ink-5)' }}>{e.name}</span>
-                  {e.kind && <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', border: '1px solid var(--glass-border)', borderRadius: 3, padding: '1px 5px' }}>{e.kind}</span>}
-                  <button onClick={() => { setEditingId(e.id); setEditName(e.name) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 12 }} title="Rename" aria-label="Rename">✎</button>
-                  <button onClick={() => patch(e.id, { metadata: { archived: true } })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ok)', fontSize: 11 }} title="Mark complete" aria-label="Mark complete">✓</button>
+                  <span style={{ flex: 1, fontSize: 'var(--text-base)', color: 'var(--ink-5)' }}>{e.name}</span>
+                  {e.kind && <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', border: '1px solid var(--glass-border)', borderRadius: 6, padding: '1px 5px' }}>{e.kind}</span>}
+                  <button onClick={() => { setEditingId(e.id); setEditName(e.name) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 'var(--text-base)' }} title="Rename" aria-label="Rename">✎</button>
+                  <button onClick={() => patch(e.id, { metadata: { archived: true } })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ok)', fontSize: 'var(--text-sm)' }} title="Mark complete" aria-label="Mark complete">✓</button>
                   <button onClick={() => remove(e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Delete" aria-label="Delete"><Trash2 size={12} /></button>
                 </>
               )}
@@ -863,11 +849,11 @@ function ManageProjectsModal({ onClose, onChange }: {
           ))}
           {archived.length > 0 && (
             <>
-              <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--glass-border)' }}>Completed</div>
+              <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--ink-3)', marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--glass-border)' }}>Completed</div>
               {archived.map(e => (
                 <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', opacity: 0.5 }}>
-                  <span style={{ flex: 1, fontSize: 12, color: 'var(--ink-4)', textDecoration: 'line-through' }}>{e.name}</span>
-                  <button onClick={() => patch(e.id, { metadata: { archived: false } })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 10 }} title="Restore" aria-label="Restore">↩</button>
+                  <span style={{ flex: 1, fontSize: 'var(--text-base)', color: 'var(--ink-4)', textDecoration: 'line-through' }}>{e.name}</span>
+                  <button onClick={() => patch(e.id, { metadata: { archived: false } })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 'var(--text-xs)' }} title="Restore" aria-label="Restore">↩</button>
                   <button onClick={() => remove(e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Delete" aria-label="Delete"><Trash2 size={12} /></button>
                 </div>
               ))}
@@ -920,7 +906,7 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
 
   const inputStyle: React.CSSProperties = {
     background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
-    borderRadius: 6, color: 'var(--ink-6)', fontSize: 12, padding: '7px 10px',
+    borderRadius: 'var(--radius-xs)', color: 'var(--ink-6)', fontSize: 'var(--text-base)', padding: '7px 10px',
     width: '100%', boxSizing: 'border-box', fontFamily: 'inherit', outline: 'none',
   }
 
@@ -946,8 +932,8 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
           <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--ink-3)', alignSelf: 'center', marginBottom: 4 }} />
         )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
-            New Task
+          <span className="panel-title">
+            New task
           </span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)' }}>
             <X size={14} />
@@ -974,7 +960,7 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
                 onClick={() => { setDueDate(''); setUrgency('someday') }}
                 title="Clear date" aria-label="Clear date"
                 style={{
-                  flexShrink: 0, padding: '0 8px', borderRadius: 6,
+                  flexShrink: 0, padding: '0 8px', borderRadius: 'var(--radius-xs)',
                   border: '1px solid var(--glass-border)', background: 'transparent',
                   color: 'var(--ink-4)', cursor: 'pointer', fontSize: 14, lineHeight: 1,
                 }}
@@ -985,15 +971,15 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}>
             <input type="checkbox" checked={keyTask} onChange={e => setKeyTask(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 16, height: 16 }} />
-            <span style={{ fontSize: 11, color: 'var(--ink-5)' }}>Key ★</span>
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-5)' }}>Key ★</span>
           </label>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8 }}>
           {dueDate ? (
-            <div style={{ ...inputStyle, color: URGENCY_COLORS[urgencyFromDate(dueDate)], fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ ...inputStyle, color: URGENCY_COLORS[urgencyFromDate(dueDate)], fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: 6 }}>
               {URGENCY_LABELS[urgencyFromDate(dueDate)]}
-              <span style={{ fontSize: 10, color: 'var(--ink-3)' }}>from due date</span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-3)' }}>from due date</span>
             </div>
           ) : (
             <select style={inputStyle} value={urgency} onChange={e => setUrgency(e.target.value as Urgency)}>
@@ -1017,9 +1003,9 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
           onClick={handleAdd}
           disabled={saving || !title.trim()}
           style={{
-            padding: '9px 0', borderRadius: 6, border: 'none',
+            padding: '9px 0', borderRadius: 'var(--radius-xs)', border: 'none',
             background: 'var(--accent)', color: '#000', fontWeight: 600,
-            fontSize: 12, cursor: saving || !title.trim() ? 'not-allowed' : 'pointer',
+            fontSize: 'var(--text-base)', cursor: saving || !title.trim() ? 'not-allowed' : 'pointer',
             opacity: saving || !title.trim() ? 0.6 : 1,
           }}
         >
@@ -1034,7 +1020,7 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
 
 export default function TasksPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 20, color: 'var(--ink-3)', fontSize: 12 }}>Loading…</div>}>
+    <Suspense fallback={<div style={{ padding: 20, color: 'var(--ink-3)', fontSize: 'var(--text-base)' }}>Loading…</div>}>
       <TasksInner />
     </Suspense>
   )
@@ -1076,6 +1062,8 @@ function TasksInner() {
   const [loading, setLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showAdd, setShowAdd] = useState(false)
+  // The patch a failed drawer save was carrying, kept so Retry can re-send it.
+  const [saveError, setSaveError] = useState<{ id: string; patch: Partial<Task>; title: string } | null>(null)
   const [showManageProjects, setShowManageProjects] = useState(false)
 
   const fetchTasks = useCallback(async () => {
@@ -1131,15 +1119,29 @@ function TasksInner() {
     }
   }
 
+  /**
+   * The drawer closes the moment you dismiss it and does not wait for this, so
+   * a failed PATCH used to take the edits with it — nothing on screen changed,
+   * and the task quietly kept its old values. The edits go in optimistically
+   * and a failure rolls back and says so, with the patch held for a retry.
+   */
   const handleSave = async (id: string, patch: Partial<Task>) => {
-    const res = await fetch(`/api/tasks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    })
-    if (res.ok) {
+    const previous = tasks.find(t => t.id === id)
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...patch } as Task : t))
+    try {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const updated = await res.json()
       setTasks(prev => prev.map(t => t.id === id ? updated : t))
+      setSaveError(null)
+    } catch (err) {
+      console.error('Failed to save task:', err)
+      if (previous) setTasks(prev => prev.map(t => t.id === id ? previous : t))
+      setSaveError({ id, patch, title: previous?.title ?? 'that task' })
     }
   }
 
@@ -1196,21 +1198,35 @@ function TasksInner() {
 
   return (
     <div style={{ padding: '16px 20px', position: 'relative' }}>
+      {saveError && (
+        <div style={{ marginBottom: 12 }}>
+          <ErrorRow
+            message={`Couldn't save "${saveError.title}".`}
+            onRetry={() => {
+              const { id, patch } = saveError
+              setSaveError(null)
+              handleSave(id, patch)
+            }}
+          />
+        </div>
+      )}
+
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <div style={{
-          display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 8, padding: 3,
+          display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 999, padding: 3,
         }}>
           {views.map(v => (
             <button
               key={v.id}
+              className="tap"
+              aria-pressed={view === v.id}
               onClick={() => setView(v.id)}
               style={{
-                padding: '6px 18px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                fontSize: 12, fontWeight: 500, letterSpacing: '0.03em',
+                padding: '6px 18px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                fontSize: 'var(--text-base)', fontWeight: 500,
                 color: view === v.id ? 'var(--ink-6)' : 'var(--ink-4)',
                 background: view === v.id ? 'var(--ink-2)' : 'transparent',
-                transition: 'background 0.15s, color 0.15s',
               }}
             >
               {v.label}
@@ -1220,11 +1236,11 @@ function TasksInner() {
         <select
           value={sort}
           onChange={e => setSort(e.target.value as Sort)}
+          aria-label="Sort tasks"
           style={{
-            background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
-            borderRadius: 6, color: 'var(--ink-4)', fontSize: 11,
-            padding: '6px 10px', cursor: 'pointer', outline: 'none',
-            fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
+            background: 'var(--ink-1)', border: 'none',
+            borderRadius: 999, color: 'var(--ink-4)', fontSize: 'var(--text-sm)',
+            padding: '7px 12px', cursor: 'pointer', outline: 'none',
           }}
         >
           <option value="priority">Priority</option>
@@ -1234,28 +1250,30 @@ function TasksInner() {
           <option value="created">Newest</option>
         </select>
         <button
+          className="tap"
           onClick={() => setShowManageProjects(true)}
           style={{
-            padding: '6px 14px', borderRadius: 6,
-            border: '1px solid var(--glass-border)',
-            background: 'transparent', color: 'var(--ink-4)',
-            fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
+            padding: '7px 15px', borderRadius: 999,
+            border: 'none',
+            background: 'var(--ink-1)', color: 'var(--ink-4)',
+            fontSize: 'var(--text-sm)', fontWeight: 500, cursor: 'pointer',
           }}
         >
           Projects
         </button>
         <button
+          className="tap"
           onClick={() => setShowAdd(true)}
           style={{
-            display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px',
-            borderRadius: 6, border: '1px solid var(--accent-border)',
+            display: 'flex', alignItems: 'center', gap: 5, padding: '7px 15px',
+            borderRadius: 999, border: 'none',
             background: 'var(--accent-dim)', color: 'var(--accent)',
-            fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
+            fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer',
           }}
         >
           <Plus size={13} /> New
         </button>
-        {loading && <span style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic' }}>Loading…</span>}
+        {loading && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)', fontStyle: 'italic' }}>Loading…</span>}
       </div>
 
       {/* Content */}

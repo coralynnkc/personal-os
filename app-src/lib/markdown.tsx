@@ -33,7 +33,7 @@ export function inline(text: string, keyPrefix = ''): ReactNode[] {
       return (
         <code key={key} style={{
           fontFamily: 'var(--font-mono)', fontSize: '0.92em',
-          background: 'var(--ink-1)', borderRadius: 4, padding: '1px 3px',
+          background: 'var(--ink-1)', borderRadius: 6, padding: '1px 3px',
         }}>{part.slice(1, -1)}</code>
       )
     }
@@ -176,14 +176,14 @@ export default function Markdown({ md, compact = false }: { md: string; compact?
           case 'table':
             return (
               <div key={key} style={{ overflowX: 'auto', margin: '12px 0' }}>
-                <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
+                <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 'var(--text-base)' }}>
                   <thead>
                     <tr>
                       {block.header.map((h, j) => (
                         <th key={`${key}h${j}`} style={{
                           textAlign: 'left', padding: '6px 10px',
                           borderBottom: '1px solid var(--glass-border)',
-                          fontFamily: 'var(--font-mono)', fontSize: 11,
+                          fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)',
                           letterSpacing: '0.08em', textTransform: 'uppercase',
                           color: 'var(--ink-4)', fontWeight: 500, whiteSpace: 'nowrap',
                         }}>{h}</th>

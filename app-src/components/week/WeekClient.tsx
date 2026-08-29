@@ -8,7 +8,7 @@ import {
   committedMinutes, dayChipLabel, dayStatus, formatHours,
   type MatchableTask, type PlanningDoc,
 } from '@/lib/weekDoc'
-import { cardStyle, ErrorRow, labelStyle } from '../jobs/ui'
+import { cardStyle, ErrorRow } from '../jobs/ui'
 import DaySection from './DaySection'
 import DeadlineStrip from './DeadlineStrip'
 
@@ -60,7 +60,7 @@ export default function WeekClient() {
       <div style={{ padding: '16px 20px' }}>
         <div style={{ ...cardStyle, padding: 16, fontSize: 13, color: 'var(--ink-4)', lineHeight: 1.6 }}>
           No week document synced yet. Run{' '}
-          <code style={{ fontFamily: 'var(--font-mono)', background: 'var(--ink-1)', borderRadius: 4, padding: '1px 5px' }}>
+          <code style={{ fontFamily: 'var(--font-mono)', background: 'var(--ink-1)', borderRadius: 6, padding: '1px 5px' }}>
             node scripts/sync-planning-docs.mjs
           </code>{' '}
           to pull <code style={{ fontFamily: 'var(--font-mono)' }}>~/Documents/1-school/planning/</code> into the app.
@@ -76,18 +76,18 @@ export default function WeekClient() {
   return (
     <div style={{ padding: '16px 20px', display: 'grid', gap: 12, maxWidth: 1100, margin: '0 auto', width: '100%' }}>
       <header style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink-6)' }}>
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink-6)' }}>
           {doc.title ?? doc.slug}
         </h1>
         {doc.synced_at && (
-          <span style={{ ...labelStyle, fontSize: 10 }}>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)' }}>
             synced {new Date(doc.synced_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
         )}
         <span style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
           {data.semester.map((s) => (
             <Link key={s.slug} href={`/week/${s.slug}`} style={{
-              fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em',
+              fontSize: 'var(--text-sm)',
               color: 'var(--accent)', textDecoration: 'none',
             }}>
               {s.title ?? s.slug}
@@ -106,17 +106,18 @@ export default function WeekClient() {
             <a
               key={day.id}
               href={`#${day.id}`}
+              className="tap"
               style={{
-                display: 'flex', alignItems: 'baseline', gap: 6,
-                padding: '5px 10px', borderRadius: 6, textDecoration: 'none',
-                border: `1px solid ${active ? 'var(--accent-border)' : 'var(--glass-border)'}`,
+                display: 'flex', alignItems: 'baseline', gap: 7,
+                padding: '6px 13px', borderRadius: 999, textDecoration: 'none',
+                border: 'none',
                 background: active ? 'var(--accent-dim)' : 'var(--ink-1)',
                 color: active ? 'var(--accent)' : status === 'past' ? 'var(--ink-3)' : 'var(--ink-5)',
-                fontSize: 12,
+                fontSize: 'var(--text-base)', fontWeight: 500,
               }}
             >
-              <span style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>{dayChipLabel(day)}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-4)' }}>
+              <span>{dayChipLabel(day)}</span>
+              <span className="meta" style={{ color: 'var(--ink-4)' }}>
                 {formatHours(committedMinutes(day))}
               </span>
             </a>
@@ -128,7 +129,7 @@ export default function WeekClient() {
 
       {parsed.intro && (
         <section style={{ ...cardStyle, padding: '12px 16px 16px' }}>
-          <div style={{ ...labelStyle, marginBottom: 8 }}>{parsed.intro.heading}</div>
+          <div className="panel-title" style={{ marginBottom: 10 }}>{parsed.intro.heading}</div>
           <Markdown md={parsed.intro.markdown} />
         </section>
       )}
@@ -147,7 +148,7 @@ export default function WeekClient() {
 
       {parsed.sections.map((section) => (
         <section key={section.id} id={section.id} style={{ ...cardStyle, padding: '12px 16px 16px' }}>
-          <div style={{ ...labelStyle, marginBottom: 8 }}>{section.heading}</div>
+          <div className="panel-title" style={{ marginBottom: 10 }}>{section.heading}</div>
           <Markdown md={section.markdown} />
         </section>
       ))}

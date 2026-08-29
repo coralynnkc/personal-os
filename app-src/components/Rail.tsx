@@ -24,7 +24,7 @@ function Clock() {
         month: 'short',
         day: 'numeric',
         timeZone: tz,
-      }).toUpperCase()
+      })
       setDisplay(`${time} · ${date}`)
     }
     tick()
@@ -32,7 +32,18 @@ function Clock() {
     return () => clearInterval(id)
   }, [])
 
-  return <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-4)', letterSpacing: '0.05em' }}>{display}</span>
+  // Reserve the width before the first tick so the rail doesn't jump when the
+  // clock arrives; `display` is empty until the effect runs on the client.
+  // Hidden on narrow screens: the phone already shows a clock, and at 480px
+  // it was pushing the wordmark onto a second line.
+  return (
+    <span
+      className="meta hidden sm:inline"
+      style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-4)', minWidth: 128, textAlign: 'right' }}
+    >
+      {display}
+    </span>
+  )
 }
 
 export default function Rail() {
@@ -43,36 +54,43 @@ export default function Rail() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 20px',
-      height: 52,
+      padding: '0 16px',
+      gap: 12,
+      height: 54,
       borderBottom: '1px solid var(--glass-border)',
-      background: 'oklch(0.14 0.012 250 / 0.9)',
+      background: 'oklch(0.19 0.008 280 / 0.88)',
       backdropFilter: 'blur(12px)',
       position: 'sticky',
       top: 0,
       zIndex: 100,
     }}>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', color: 'var(--accent)', textTransform: 'uppercase', fontWeight: 600 }}>
-        PERSONAL OS // v1.0
+      {/* Was `PERSONAL OS // v1.0` in accent-coloured uppercase mono — the
+          loudest element on every screen, announcing a version number nobody
+          needs. A wordmark is enough. */}
+      <span style={{
+        fontSize: 'var(--text-md)', fontWeight: 600, letterSpacing: '-0.01em',
+        color: 'var(--ink-5)', whiteSpace: 'nowrap', flexShrink: 0,
+      }}>
+        Personal OS
       </span>
 
-      <div style={{ display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 8, padding: 3 }}>
+      <div style={{ display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 999, padding: 3 }}>
         {([['/', 'Home'], ['/tasks', 'Tasks'], ['/jobs', 'Jobs'], ['/week', 'Week']] as const).map(([href, label]) => {
           const active = href === '/' ? path === '/' : path.startsWith(href)
           return (
             <Link
               key={href}
               href={href}
+              className="tap"
+              aria-current={active ? 'page' : undefined}
               style={{
-                padding: '5px 16px',
-                borderRadius: 6,
-                fontSize: 12,
+                padding: '6px 18px',
+                borderRadius: 999,
+                fontSize: 'var(--text-base)',
                 fontWeight: 500,
                 color: active ? 'var(--ink-6)' : 'var(--ink-4)',
                 background: active ? 'var(--ink-2)' : 'transparent',
                 textDecoration: 'none',
-                letterSpacing: '0.03em',
-                transition: 'all 0.15s',
               }}
             >
               {label}

@@ -79,36 +79,24 @@ export default function Calendar() {
   const now = new Date()
 
   return (
-    <div style={{
-      background: 'var(--glass)',
-      border: '1px solid var(--glass-border)',
-      borderRadius: 'var(--radius)',
-      backdropFilter: 'blur(16px)',
-      overflow: 'hidden',
-      minHeight: 280,
-      display: 'flex',
-      flexDirection: 'column',
-    }}>
+    <div className="card" style={{ minHeight: 280, display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px 10px', borderBottom: '1px solid var(--glass-border)',
+        padding: '14px 18px 10px',
       }}>
-        <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 10,
-          letterSpacing: '0.14em', color: 'var(--ink-4)', textTransform: 'uppercase',
-        }}>
-          Calendar
-        </span>
+        <span className="panel-title">Calendar</span>
         {loading && (
-          <span style={{ fontSize: 10, color: 'var(--ink-3)', fontStyle: 'italic' }}>Loading…</span>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)' }}>Loading…</span>
         )}
       </div>
 
-      {/* 7-day strip */}
+      {/* 7-day strip. The grid used to be ruled on every column and underlined
+          as a whole — seven vertical hairlines for seven buttons. Selection
+          alone carries it now. */}
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
-        borderBottom: '1px solid var(--glass-border)',
+        gap: 2, padding: '0 10px 10px',
       }}>
         {days.map(({ key, dayName, dayNum }) => {
           const isToday = key === todayKey
@@ -118,26 +106,26 @@ export default function Calendar() {
             <button
               key={key}
               onClick={() => setSelectedDay(key)}
+              className={isSelected ? undefined : 'tap'}
+              aria-pressed={isSelected}
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
-                padding: '8px 4px 7px',
+                padding: '7px 2px 6px',
                 background: isSelected ? 'var(--accent-dim)' : 'transparent',
                 border: 'none',
-                borderRight: '1px solid var(--glass-border)',
-                borderBottom: isSelected ? `2px solid var(--accent)` : '2px solid transparent',
+                borderRadius: 'var(--radius-xs)',
                 cursor: 'pointer',
-                gap: 3,
+                gap: 2,
               }}
             >
               <span style={{
-                fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em',
-                textTransform: 'uppercase',
+                fontSize: 'var(--text-xs)', fontWeight: 500,
                 color: isToday ? 'var(--accent)' : 'var(--ink-3)',
               }}>
                 {dayName}
               </span>
               <span style={{
-                fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600,
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)', fontWeight: 500,
                 color: isSelected ? 'var(--accent)' : isToday ? 'var(--ink-6)' : 'var(--ink-5)',
               }}>
                 {dayNum}
@@ -152,12 +140,12 @@ export default function Calendar() {
       </div>
 
       {/* Event list */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
         {error && <ErrorRow message={error} onRetry={load} />}
 
         {!loading && !error && selectedEvents.length === 0 && (
-          <div style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic', padding: '8px 4px' }}>
-            No events.
+          <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink-3)', padding: '8px 6px' }}>
+            Nothing on the calendar.
           </div>
         )}
 
@@ -166,30 +154,25 @@ export default function Calendar() {
           return (
             <div
               key={ev.id}
+              className="tile"
               style={{
                 display: 'flex', flexDirection: 'column', gap: 3,
-                padding: '8px 10px', borderRadius: 7,
-                background: 'var(--ink-1)',
-                border: '1px solid var(--glass-border)',
-                opacity: isPast ? 0.4 : 1,
-                transition: 'opacity 0.15s',
+                padding: '9px 12px',
+                opacity: isPast ? 0.45 : 1,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)',
-                  letterSpacing: '0.06em', flexShrink: 0,
-                }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
+                <span className="meta" style={{ color: 'var(--accent)', flexShrink: 0 }}>
                   {formatTime(ev.start, ev.allDay)}
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--ink-6)', lineHeight: 1.3, fontWeight: 500 }}>
+                <span style={{ fontSize: 'var(--text-base)', color: 'var(--ink-6)', lineHeight: 1.4, fontWeight: 500 }}>
                   {ev.title}
                 </span>
               </div>
               {ev.location && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingLeft: 2 }}>
-                  <MapPin size={9} color="var(--ink-3)" />
-                  <span style={{ fontSize: 10, color: 'var(--ink-3)' }}>{ev.location}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, paddingLeft: 1 }}>
+                  <MapPin size={11} color="var(--ink-3)" />
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)' }}>{ev.location}</span>
                 </div>
               )}
             </div>

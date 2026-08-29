@@ -114,14 +114,15 @@ export default function RhythmCard() {
         {tasks.map(t => {
           const done = !!t.completed_at
           return (
-            <div key={t.slot} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', borderTop: '1px solid var(--glass-border)' }}>
+            <div key={t.slot} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 18px' }}>
               <button
                 onClick={() => toggle(t)}
                 disabled={busy.has(t.slot) || !t.task_id}
                 aria-label={done ? `Mark "${t.title}" not done` : `Mark "${t.title}" done`}
+                className="tap"
                 style={{
-                  flexShrink: 0, width: 18, height: 18, borderRadius: 4,
-                  border: `1px solid ${done ? 'var(--ok)' : 'var(--ink-3)'}`,
+                  flexShrink: 0, width: 20, height: 20, borderRadius: 999,
+                  border: `1.5px solid ${done ? 'var(--ok)' : 'var(--ink-3)'}`,
                   background: done ? 'var(--ok)' : 'transparent',
                   cursor: t.task_id ? 'pointer' : 'default',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -131,23 +132,23 @@ export default function RhythmCard() {
               </button>
 
               <span style={{
-                flex: 1, fontSize: 13, lineHeight: 1.4, minWidth: 0,
+                flex: 1, fontSize: 'var(--text-base)', lineHeight: 1.45, minWidth: 0,
                 color: done ? 'var(--ink-3)' : 'var(--ink-6)',
                 textDecoration: done ? 'line-through' : 'none',
               }}>
                 {t.title}
               </span>
 
-              <span style={{ flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 11, color: done ? 'var(--ok)' : 'var(--ink-3)', fontVariantNumeric: 'tabular-nums' }}>
+              <span className="meta" style={{ flexShrink: 0, color: done ? 'var(--ok)' : 'var(--ink-3)' }}>
                 {t.points}pt
               </span>
-              <span style={{
-                flexShrink: 0, fontSize: 11, fontFamily: 'var(--font-mono)',
-                letterSpacing: '0.06em', textTransform: 'uppercase',
-                color: TAG_COLOR[t.tag] ?? 'var(--ink-4)',
-                border: `1px solid ${TAG_COLOR[t.tag] ?? 'var(--ink-4)'}`,
-                borderRadius: 4, padding: '1px 6px',
-              }}>
+              <span
+                className="chip"
+                style={{
+                  color: TAG_COLOR[t.tag] ?? 'var(--ink-4)',
+                  background: `color-mix(in oklch, ${TAG_COLOR[t.tag] ?? 'var(--ink-4)'} 15%, transparent)`,
+                }}
+              >
                 {t.tag}
               </span>
             </div>

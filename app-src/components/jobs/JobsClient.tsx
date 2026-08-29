@@ -17,15 +17,16 @@ function Toggle<T extends string>({
   value, options, onChange, label,
 }: { value: T; options: readonly (readonly [T, string])[]; onChange: (v: T) => void; label: string }) {
   return (
-    <div role="group" aria-label={label} style={{ display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 8, padding: 3 }}>
+    <div role="group" aria-label={label} style={{ display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 999, padding: 3 }}>
       {options.map(([v, text]) => (
         <button
           key={v}
           onClick={() => onChange(v)}
           aria-pressed={value === v}
+          className="tap"
           style={{
-            cursor: 'pointer', padding: '4px 12px', borderRadius: 6, border: 'none',
-            fontSize: 12, letterSpacing: '0.03em',
+            cursor: 'pointer', padding: '5px 14px', borderRadius: 999, border: 'none',
+            fontSize: 'var(--text-sm)', fontWeight: 500,
             color: value === v ? 'var(--ink-6)' : 'var(--ink-4)',
             background: value === v ? 'var(--ink-2)' : 'transparent',
           }}

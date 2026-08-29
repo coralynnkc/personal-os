@@ -125,8 +125,12 @@ export function tagColor(tag: string): { fg: string; bg: string; border: string 
   for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) | 0
   const hue = TAG_HUES[Math.abs(h) % TAG_HUES.length]
   return {
-    fg: `oklch(0.82 0.10 ${hue})`,
-    bg: `oklch(0.72 0.14 ${hue} / 0.15)`,
-    border: `oklch(0.72 0.14 ${hue} / 0.30)`,
+    // Pale and low-chroma: a card can carry two of these plus a date chip, and
+    // at the old saturation ten tags on screen fought each other for attention.
+    fg: `oklch(0.855 0.062 ${hue})`,
+    bg: `oklch(0.72 0.12 ${hue} / 0.13)`,
+    // Chips are fill-only now. Kept for the few places that outline a tag
+    // (the drawer's editable list) rather than fill it.
+    border: `oklch(0.72 0.12 ${hue} / 0.24)`,
   }
 }

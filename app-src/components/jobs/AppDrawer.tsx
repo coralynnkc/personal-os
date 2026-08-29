@@ -11,13 +11,13 @@ import { labelStyle, Pill } from './ui'
 const fieldStyle = {
   width: '100%', fontSize: 13, color: 'var(--ink-6)',
   background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
-  borderRadius: 6, padding: '6px 8px',
+  borderRadius: 'var(--radius-xs)', padding: '6px 8px',
 } as const
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <span style={{ ...labelStyle, fontSize: 11 }}>{label}</span>
+      <span style={{ ...labelStyle, fontSize: 'var(--text-sm)' }}>{label}</span>
       {children}
     </div>
   )
@@ -164,7 +164,7 @@ export default function AppDrawer({
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Open portal"
-                  style={{ flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 8px', color: 'var(--accent)', border: '1px solid var(--accent-border)', borderRadius: 6 }}
+                  style={{ flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 8px', color: 'var(--accent)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-xs)' }}
                 >
                   <ExternalLink size={13} />
                 </a>
@@ -192,7 +192,7 @@ export default function AppDrawer({
 
         {/* Joined research from the linked company entity */}
         <div style={{ borderTop: '1px solid var(--glass-border)', padding: 16 }}>
-          <div style={{ ...labelStyle, marginBottom: 10 }}>
+          <div className="panel-title" style={{ marginBottom: 12 }}>
             Research {app.entity ? `· ${app.entity.name}` : ''}
           </div>
 
@@ -213,7 +213,7 @@ export default function AppDrawer({
                 const isLink = f.key === 'apply_url'
                 return (
                   <div key={f.key}>
-                    <div style={{ ...labelStyle, fontSize: 11, marginBottom: 2 }}>{f.label}</div>
+                    <div style={{ ...labelStyle, fontSize: 'var(--text-sm)', marginBottom: 2 }}>{f.label}</div>
                     {isLink ? (
                       <a
                         href={toHref(text)}
@@ -237,9 +237,9 @@ export default function AppDrawer({
           <button
             onClick={onDelete}
             style={{
-              cursor: 'pointer', fontSize: 12, color: 'var(--danger)',
+              cursor: 'pointer', fontSize: 'var(--text-base)', color: 'var(--danger)',
               background: 'transparent', border: '1px solid var(--danger)',
-              borderRadius: 6, padding: '5px 10px',
+              borderRadius: 'var(--radius-xs)', padding: '5px 10px',
             }}
           >
             Remove from pipeline
