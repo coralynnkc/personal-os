@@ -173,7 +173,11 @@ export default function JobsClient() {
 
       {today && !loading && (
         <>
-          <StaleStrip apps={apps} today={today} onStamp={a => patch(a.id, { portal_last_checked: today })} />
+          <StaleStrip
+            apps={apps}
+            today={today}
+            onStamp={(a, status) => patch(a.id, { portal_last_checked: today, ...(status ? { status } : {}) })}
+          />
           <div className="grid gap-3 items-start grid-cols-1 lg:grid-cols-2">
             <WaveStrip apps={apps} />
             <RhythmCard />
