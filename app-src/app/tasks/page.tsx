@@ -1027,14 +1027,27 @@ function TasksInner() {
 
   useEffect(() => { fetchTasks() }, [fetchTasks])
 
-  // Pre-open drawer from ?task=id (linked from Today's Tasks card)
+  // Pre-open drawer from ?task=id (linked from Today's Tasks card).
+  // Guarded by a ref so it fires once per id: this effect depends on `tasks`,
+  // and closing the drawer saves, which rewrites `tasks` — without the guard
+  // that re-runs the effect and snaps the drawer straight back open.
+  const preOpenedRef = useRef<string | null>(null)
   useEffect(() => {
     const taskId = searchParams.get('task')
-    if (taskId && tasks.length) {
-      const t = tasks.find(t => t.id === taskId)
-      if (t) setSelectedTask(t)
+    if (!taskId) { preOpenedRef.current = null; return }
+    if (preOpenedRef.current === taskId || !tasks.length) return
+    const t = tasks.find(t => t.id === taskId)
+    if (t) {
+      preOpenedRef.current = taskId
+      setSelectedTask(t)
     }
   }, [searchParams, tasks])
+
+  // Closing has to drop the ?task= param too, or the URL keeps asking for it.
+  const closeDrawer = useCallback(() => {
+    setSelectedTask(null)
+    if (searchParams.get('task')) router.replace('/tasks', { scroll: false })
+  }, [router, searchParams])
 
   const handleComplete = async (id: string) => {
     const now = new Date().toISOString()
@@ -1085,7 +1098,7 @@ function TasksInner() {
 
   const handleDelete = async (id: string) => {
     const removed = tasks.find(t => t.id === id)
-    setSelectedTask(null)
+    closeDrawer()
     setTasks(prev => prev.filter(t => t.id !== id))
     try {
       const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
@@ -1197,7 +1210,7 @@ function TasksInner() {
       <TaskDrawer
         task={selectedTask}
         entities={entities}
-        onClose={() => setSelectedTask(null)}
+        onClose={closeDrawer}
         onSave={handleSave}
         onDelete={handleDelete}
         onUncomplete={handleUncomplete}

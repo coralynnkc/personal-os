@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { X, ExternalLink } from 'lucide-react'
 import {
   STATUSES, STATUS_LABEL, STATUS_COLOR, WAVES, RESEARCH_FIELDS,
-  daysSince, type Application,
+  daysSince, toHref, type Application,
 } from '@/lib/jobs'
 import { labelStyle, Pill } from './ui'
 
@@ -160,7 +160,7 @@ export default function AppDrawer({
               />
               {app.portal_url && (
                 <a
-                  href={app.portal_url}
+                  href={toHref(app.portal_url)}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Open portal"
@@ -216,7 +216,7 @@ export default function AppDrawer({
                     <div style={{ ...labelStyle, fontSize: 11, marginBottom: 2 }}>{f.label}</div>
                     {isLink ? (
                       <a
-                        href={text.startsWith('http') ? text : `https://${text}`}
+                        href={toHref(text)}
                         target="_blank"
                         rel="noreferrer"
                         style={{ fontSize: 13, color: 'var(--accent)', wordBreak: 'break-all' }}

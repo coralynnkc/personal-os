@@ -120,3 +120,16 @@ export const RESEARCH_FIELDS: { key: string; label: string }[] = [
   { key: 'apply_url',           label: 'Where to apply' },
   { key: 'portal_last_checked', label: 'Portal last checked' },
 ]
+
+/**
+ * Portal and careers URLs are typed by hand, so plenty of them arrive without a
+ * scheme ("careers.united.com"). A bare href like that is a *relative* path to
+ * the browser, so the click lands on /careers.united.com on our own origin.
+ * Everything that renders a stored URL as a link goes through this.
+ */
+export function toHref(url: string): string {
+  const trimmed = url.trim()
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) || trimmed.startsWith('mailto:')
+    ? trimmed
+    : `https://${trimmed}`
+}

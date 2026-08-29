@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Check } from 'lucide-react'
 import { toDateKey, USER_TZ } from '@/lib/dateKey'
@@ -23,12 +24,79 @@ const URGENCY_COLOR: Record<string, string> = {
   someday: 'var(--ink-4)',
 }
 
+type Placement = { top: number; left: number; width: number }
+
+const TOOLTIP_GAP = 4
+const TOOLTIP_INSET = 8   // keep this far off every viewport edge
+const TOOLTIP_INDENT = 24 // line up with the task row, not the checkbox
+
+function place(anchor: HTMLElement, height: number): Placement {
+  const r = anchor.getBoundingClientRect()
+  const width = Math.max(120, r.width - TOOLTIP_INDENT)
+  const below = r.bottom + TOOLTIP_GAP
+  const above = r.top - TOOLTIP_GAP - height
+  // Flip up only when below genuinely doesn't fit and above does.
+  const flip = below + height > window.innerHeight - TOOLTIP_INSET && above >= TOOLTIP_INSET
+  const maxLeft = window.innerWidth - width - TOOLTIP_INSET
+  return {
+    top: Math.max(TOOLTIP_INSET, flip ? above : below),
+    left: Math.min(Math.max(TOOLTIP_INSET, r.left + TOOLTIP_INDENT), Math.max(TOOLTIP_INSET, maxLeft)),
+    width,
+  }
+}
+
+/**
+ * The card clips its children (`overflow: hidden`, for the rounded header
+ * border), so an absolutely-positioned tooltip on the last row got sliced off
+ * at the card's bottom edge. Portalling to <body> with fixed coordinates takes
+ * it out of that clipping context entirely, and lets it flip above the row
+ * when it would otherwise run off the bottom of the window.
+ */
+function DescriptionTooltip({ anchor, text }: { anchor: HTMLElement; text: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<Placement>(() => place(anchor, 0))
+
+  useLayoutEffect(() => {
+    // The first pass measures at height 0; re-place with the real height
+    // before paint so a flip never flickers.
+    const reposition = () => setPos(place(anchor, ref.current?.offsetHeight ?? 0))
+    reposition()
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
+    return () => {
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
+    }
+  }, [anchor, text])
+
+  return createPortal(
+    <div
+      ref={ref}
+      role="tooltip"
+      style={{
+        position: 'fixed', top: pos.top, left: pos.left, width: pos.width,
+        maxHeight: `calc(100vh - ${pos.top + TOOLTIP_INSET}px)`, overflowY: 'auto',
+        zIndex: 60, pointerEvents: 'none',
+        padding: '6px 8px', borderRadius: 6,
+        background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
+        backdropFilter: 'blur(16px)',
+        boxShadow: '0 6px 18px oklch(0 0 0 / 0.35)',
+        fontSize: 11, lineHeight: 1.4, color: 'var(--ink-5)',
+        whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
+      }}
+    >
+      {text}
+    </div>,
+    document.body,
+  )
+}
+
 export default function TodayTasks() {
   const router = useRouter()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<Set<string>>(new Set())
-  const [hovered, setHovered] = useState<string | null>(null)
+  const [hovered, setHovered] = useState<{ id: string; el: HTMLElement } | null>(null)
 
   useEffect(() => {
     fetch('/api/tasks?effective_today=true&status=open')
@@ -114,8 +182,8 @@ export default function TodayTasks() {
         {tasks.map(task => (
           <div
             key={task.id}
-            onMouseEnter={() => setHovered(task.id)}
-            onMouseLeave={() => setHovered(h => (h === task.id ? null : h))}
+            onMouseEnter={e => setHovered({ id: task.id, el: e.currentTarget })}
+            onMouseLeave={() => setHovered(h => (h?.id === task.id ? null : h))}
             style={{
               display: 'flex', alignItems: 'center', gap: 6, position: 'relative',
             }}
@@ -196,23 +264,9 @@ export default function TodayTasks() {
               })()}
             </button>
 
-            {/* Description tooltip */}
-            {hovered === task.id && task.description && (
-              <div
-                role="tooltip"
-                style={{
-                  position: 'absolute', top: 'calc(100% + 4px)', left: 24, right: 0,
-                  zIndex: 20, pointerEvents: 'none',
-                  padding: '6px 8px', borderRadius: 6,
-                  background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
-                  backdropFilter: 'blur(16px)',
-                  boxShadow: '0 6px 18px oklch(0 0 0 / 0.35)',
-                  fontSize: 10, lineHeight: 1.4, color: 'var(--ink-5)',
-                  whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
-                }}
-              >
-                {task.description}
-              </div>
+            {/* Description tooltip — portalled, so the card's overflow can't clip it */}
+            {hovered?.id === task.id && task.description && (
+              <DescriptionTooltip anchor={hovered.el} text={task.description} />
             )}
           </div>
         ))}

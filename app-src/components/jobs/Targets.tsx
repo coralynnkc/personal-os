@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { Plus, Check, ExternalLink } from 'lucide-react'
 import { cardStyle, labelStyle, Empty, Pill } from './ui'
-import type { Application, CompanyEntity } from '@/lib/jobs'
+import { toHref, type Application, type CompanyEntity } from '@/lib/jobs'
 
 type Meta = Record<string, unknown>
 
@@ -128,7 +128,7 @@ export default function Targets({
 
                 {url && (
                   <a
-                    href={url.startsWith('http') ? url : `https://${url}`}
+                    href={toHref(url)}
                     target="_blank"
                     rel="noreferrer"
                     aria-label={`Open ${c.name} careers page`}

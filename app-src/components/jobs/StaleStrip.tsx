@@ -2,7 +2,7 @@
 
 import { ExternalLink, Check } from 'lucide-react'
 import { Panel, Empty, labelStyle } from './ui'
-import { daysSince, isStale, STALE_AFTER_DAYS, type Application } from '@/lib/jobs'
+import { daysSince, isStale, STALE_AFTER_DAYS, toHref, type Application } from '@/lib/jobs'
 
 /**
  * The one thing the spreadsheet could not do.
@@ -66,7 +66,7 @@ export default function StaleStrip({
 
                 {app.portal_url && (
                   <a
-                    href={app.portal_url}
+                    href={toHref(app.portal_url)}
                     target="_blank"
                     rel="noreferrer"
                     // Opening the portal is the moment you actually check it,
