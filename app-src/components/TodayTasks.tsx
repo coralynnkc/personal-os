@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Check } from 'lucide-react'
-import { toDateKey, USER_TZ } from '@/lib/dateKey'
+import { dueLabel, TONE_COLOR } from '@/lib/taskDisplay'
 import StartFocusButton from './pomodoro/StartFocusButton'
+import { ErrorRow } from './jobs/ui'
 
 type Task = {
   id: string
@@ -16,13 +17,6 @@ type Task = {
   points: number | null
   due_date: string | null
   completed_at: string | null
-}
-
-const URGENCY_COLOR: Record<string, string> = {
-  today: 'var(--danger)',
-  week: 'var(--warn)',
-  month: 'var(--accent)',
-  someday: 'var(--ink-4)',
 }
 
 type Placement = { top: number; left: number; width: number }
@@ -98,19 +92,28 @@ export default function TodayTasks() {
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<Set<string>>(new Set())
   const [hovered, setHovered] = useState<{ id: string; el: HTMLElement } | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true)
+    setError(null)
     fetch('/api/tasks?effective_today=true&status=open')
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then(data => {
         setTasks(data ?? [])
         setLoading(false)
       })
       .catch(err => {
         console.error('TodayTasks fetch error:', err)
+        setError("Couldn't load today's tasks.")
         setLoading(false)
       })
   }, [])
+
+  useEffect(() => { load() }, [load])
 
   const completeTask = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
@@ -125,6 +128,7 @@ export default function TodayTasks() {
       setTasks(prev => prev.filter(t => t.id !== id))
     } catch (err) {
       console.error('Failed to complete task:', err)
+      setError("Couldn't complete that task.")
     } finally {
       setCompleting(prev => { const s = new Set(prev); s.delete(id); return s })
     }
@@ -149,7 +153,7 @@ export default function TodayTasks() {
         padding: '12px 16px 10px', borderBottom: '1px solid var(--glass-border)',
       }}>
         <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 9,
+          fontFamily: 'var(--font-mono)', fontSize: 10,
           letterSpacing: '0.14em', color: 'var(--ink-4)', textTransform: 'uppercase',
         }}>
           Today's Key Tasks
@@ -168,13 +172,15 @@ export default function TodayTasks() {
 
       {/* Body */}
       <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {loading && (
+        {error && <ErrorRow message={error} onRetry={load} />}
+
+        {loading && !error && (
           <div style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic', padding: '6px 4px' }}>
             Loading…
           </div>
         )}
 
-        {!loading && tasks.length === 0 && (
+        {!loading && !error && tasks.length === 0 && (
           <div style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic', padding: '6px 4px' }}>
             No key tasks for today.
           </div>
@@ -193,7 +199,7 @@ export default function TodayTasks() {
             <button
               onClick={e => completeTask(e, task.id)}
               disabled={completing.has(task.id)}
-              title="Mark complete"
+              title="Mark complete" aria-label="Mark complete"
               style={{
                 flexShrink: 0,
                 width: 18, height: 18,
@@ -243,7 +249,7 @@ export default function TodayTasks() {
               </span>
               {task.points != null && (
                 <span style={{
-                  fontSize: 9, fontFamily: 'var(--font-mono)',
+                  fontSize: 10, fontFamily: 'var(--font-mono)',
                   color: 'var(--accent)', background: 'var(--accent-dim)',
                   border: '1px solid var(--accent-border)',
                   borderRadius: 4, padding: '1px 5px', flexShrink: 0,
@@ -252,19 +258,18 @@ export default function TodayTasks() {
                 </span>
               )}
               {(() => {
-                const today = toDateKey(new Date(), USER_TZ)
-                const overdue = task.due_date && task.due_date < today
-                const label = overdue ? 'overdue' : task.due_date === today ? 'due today' : task.urgency
-                const color = (overdue || task.urgency === 'today') ? 'var(--danger)' : URGENCY_COLOR[task.urgency ?? ''] ?? 'var(--ink-4)'
-                return label ? (
+                const due = dueLabel(task)
+                if (!due) return null
+                const color = TONE_COLOR[due.tone]
+                return (
                   <span style={{
-                    fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
-                    textTransform: 'uppercase', color, border: `1px solid ${color}`,
+                    fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.04em',
+                    color, border: `1px solid ${color}`,
                     borderRadius: 4, padding: '1px 5px', flexShrink: 0,
                   }}>
-                    {label}
+                    {due.text}
                   </span>
-                ) : null
+                )
               })()}
             </button>
 

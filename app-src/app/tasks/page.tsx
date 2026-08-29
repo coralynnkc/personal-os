@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback, Suspense } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, X, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { USER_TZ } from '@/lib/dateKey'
 import StartFocusButton from '@/components/pomodoro/StartFocusButton'
+import {
+  localToday, dueLabel, tagFrequency, displayTags, tagColor, TONE_COLOR,
+  EMPTY_TAG_FREQ, type TagFreq,
+} from '@/lib/taskDisplay'
 
 function useMobile() {
   const [mobile, setMobile] = useState(false)
@@ -38,9 +42,6 @@ type View = 'kanban' | 'forecast' | 'category'
 type Sort = 'priority' | 'due' | 'title' | 'points' | 'created'
 type Urgency = 'today' | 'week' | 'month' | 'someday'
 
-function localToday(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: USER_TZ }).format(new Date())
-}
 
 function urgencyFromDate(due: string): Urgency {
   const today = localToday()
@@ -49,7 +50,10 @@ function urgencyFromDate(due: string): Urgency {
   const now = new Date()
   const in7 = new Date(now); in7.setDate(now.getDate() + 7)
   if (dueDate <= in7) return 'week'
-  if (dueDate.getMonth() === now.getMonth() && dueDate.getFullYear() === now.getFullYear()) return 'month'
+  // Rolling 30 days, not the calendar month — on Aug 29 a Sep 8 deadline is
+  // three weeks of runway, not "someday".
+  const in30 = new Date(now); in30.setDate(now.getDate() + 30)
+  if (dueDate <= in30) return 'month'
   return 'someday'
 }
 
@@ -89,9 +93,9 @@ function cardShell(extra?: React.CSSProperties): React.CSSProperties {
 
 function chip(color: string): React.CSSProperties {
   return {
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: 'var(--font-mono)',
-    letterSpacing: '0.1em',
+    letterSpacing: '0.08em',
     textTransform: 'uppercase' as const,
     color,
     border: `1px solid ${color}`,
@@ -101,12 +105,68 @@ function chip(color: string): React.CSSProperties {
   }
 }
 
+/**
+ * Tags read as words, not labels — no uppercase, no wide tracking. The colour
+ * is what does the sorting work, so the text can stay quiet.
+ */
+function tagChip(tag: string): React.CSSProperties {
+  const c = tagColor(tag)
+  return {
+    fontSize: 10,
+    fontFamily: 'var(--font-mono)',
+    color: c.fg,
+    background: c.bg,
+    border: `1px solid ${c.border}`,
+    borderRadius: 4,
+    padding: '1px 6px',
+    whiteSpace: 'nowrap' as const,
+  }
+}
+
+/** Date chips are read, not scanned, so they lose the uppercase treatment too. */
+function dateChip(color: string): React.CSSProperties {
+  return { ...chip(color), textTransform: 'none' as const, letterSpacing: '0.04em' }
+}
+
+/**
+ * Tag frequency across every loaded task, so a card can tell an identifying tag
+ * from one that 96 of 100 tasks also carry. Context rather than props: three
+ * views sit between the page and the card and none of them care.
+ */
+const TagFreqContext = createContext<TagFreq>(EMPTY_TAG_FREQ)
+
 // ── Task card ──────────────────────────────────────────────────────────────
 
-function TaskCard({ task, onClick, onComplete }: {
+/** The chip row under a task title: one date chip, then at most two tags. */
+function TaskMeta({ task, hideDue }: { task: Task; hideDue?: string }) {
+  const freq = useContext(TagFreqContext)
+  const raw = dueLabel(task)
+  // A "today" chip inside the Today column is noise; "3d late" in that same
+  // column is not, so only the exact repeated word drops out.
+  const due = raw && raw.text === hideDue ? null : raw
+  const { shown, hidden } = displayTags(task.tags, freq)
+  if (!due && shown.length === 0) return null
+  return (
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', paddingLeft: 24 }}>
+      {due && <span style={dateChip(TONE_COLOR[due.tone])}>{due.text}</span>}
+      {shown.map(t => (
+        <span key={t} style={tagChip(t)}>{t}</span>
+      ))}
+      {hidden.length > 0 && (
+        <span style={{ ...chip('var(--ink-3)'), textTransform: 'none' }} title={hidden.join(', ')}>
+          +{hidden.length}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function TaskCard({ task, onClick, onComplete, hideDue }: {
   task: Task
   onClick: () => void
   onComplete: (id: string) => void
+  /** Drop the date chip when it would only repeat the heading above it. */
+  hideDue?: string
 }) {
   return (
     <div
@@ -133,7 +193,7 @@ function TaskCard({ task, onClick, onComplete }: {
             background: 'transparent', cursor: 'pointer', flexShrink: 0,
             padding: 0,
           }}
-          title="Complete task"
+          title="Complete task" aria-label="Complete task"
         />
         <span style={{ fontSize: 12, color: 'var(--ink-6)', lineHeight: 1.4, flex: 1 }}>
           {isEffectivelyKey(task) && <span style={{ color: 'var(--accent)', marginRight: 4 }}>★</span>}
@@ -151,14 +211,7 @@ function TaskCard({ task, onClick, onComplete }: {
         )}
         <StartFocusButton taskId={task.id} taskTitle={task.title} size={16} />
       </div>
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', paddingLeft: 24 }}>
-        {task.due_date && (
-          <span style={chip('var(--ink-4)')}>{task.due_date}</span>
-        )}
-        {(task.tags ?? []).map(t => (
-          <span key={t} style={chip('var(--ink-3)')}>{t}</span>
-        ))}
-      </div>
+      <TaskMeta task={task} hideDue={hideDue} />
     </div>
   )
 }
@@ -185,14 +238,14 @@ function KanbanView({ tasks, onSelect, onComplete }: {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '10px 14px 8px', borderBottom: '1px solid var(--glass-border)',
             }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: URGENCY_COLORS[tier] }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: URGENCY_COLORS[tier] }}>
                 {URGENCY_LABELS[tier]}
               </span>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-3)' }}>{tierTasks.length}</span>
             </div>
             <div style={{ padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 6, minHeight: 80 }}>
               {tierTasks.map(t => (
-                <TaskCard key={t.id} task={t} onClick={() => onSelect(t)} onComplete={onComplete} />
+                <TaskCard key={t.id} task={t} onClick={() => onSelect(t)} onComplete={onComplete} hideDue={tier === 'today' ? 'today' : undefined} />
               ))}
               {tierTasks.length === 0 && (
                 <div style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic', padding: '4px 2px' }}>Empty</div>
@@ -214,7 +267,7 @@ function KanbanView({ tasks, onSelect, onComplete }: {
             }}
           >
             {doneOpen ? <ChevronDown size={12} color="var(--ink-4)" /> : <ChevronRight size={12} color="var(--ink-4)" />}
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ok)' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ok)' }}>
               Done
             </span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-3)', marginLeft: 'auto' }}>{done.length}</span>
@@ -276,7 +329,7 @@ function ForecastView({ tasks, onSelect, onComplete }: {
       {overdue.length > 0 && (
         <div style={cardShell()}>
           <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid var(--glass-border)' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--danger)' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--danger)' }}>
               Overdue
             </span>
           </div>
@@ -304,7 +357,7 @@ function ForecastView({ tasks, onSelect, onComplete }: {
                 borderBottom: '1px solid var(--glass-border)',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', color: isToday ? 'var(--accent)' : 'var(--ink-4)', textTransform: 'uppercase' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', color: isToday ? 'var(--accent)' : 'var(--ink-4)', textTransform: 'uppercase' }}>
                   {dayLabel(d)}
                 </span>
                 {dayTasks.length > 0 && (
@@ -331,7 +384,7 @@ function ForecastView({ tasks, onSelect, onComplete }: {
                         background: 'transparent', cursor: 'pointer', flexShrink: 0,
                       }}
                     />
-                    {isEffectivelyKey(t) && <span style={{ color: 'var(--accent)', fontSize: 8 }}>★</span>}
+                    {isEffectivelyKey(t) && <span style={{ color: 'var(--accent)', fontSize: 9 }}>★</span>}
                     {t.title}
                   </div>
                 ))}
@@ -344,7 +397,7 @@ function ForecastView({ tasks, onSelect, onComplete }: {
       {noDueDate.length > 0 && (
         <div style={cardShell()}>
           <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid var(--glass-border)' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
               No Due Date
             </span>
           </div>
@@ -389,7 +442,7 @@ function CategoryView({ tasks, entities, onSelect, onComplete }: {
               padding: '10px 14px 8px', borderBottom: '1px solid var(--glass-border)',
               display: 'flex', alignItems: 'center', gap: 8,
             }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-5)' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-5)' }}>
                 {label}
               </span>
               {kind && <span style={chip('var(--ink-3)')}>{kind}</span>}
@@ -455,7 +508,7 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
     outline: 'none',
   }
   const labelStyle: React.CSSProperties = {
-    fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.12em',
+    fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.12em',
     textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 4, display: 'block',
   }
   const rowStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4 }
@@ -491,14 +544,14 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '14px 16px', borderBottom: '1px solid var(--glass-border)', flexShrink: 0,
         }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
             {isCompleted ? 'Completed Task' : 'Edit Task'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
               onClick={() => { if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id) }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)' }}
-              title="Delete task"
+              title="Delete task" aria-label="Delete task"
             >
               <Trash2 size={14} />
             </button>
@@ -528,7 +581,7 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
               <label style={labelStyle}>Urgency</label>
               {form.due_date ? (
                 <div style={{ ...inputStyle, color: URGENCY_COLORS[urgencyFromDate(form.due_date)], fontSize: 11, display: 'flex', alignItems: 'center' }}>
-                  {URGENCY_LABELS[urgencyFromDate(form.due_date)]} <span style={{ marginLeft: 6, fontSize: 9, color: 'var(--ink-3)' }}>from due date</span>
+                  {URGENCY_LABELS[urgencyFromDate(form.due_date)]} <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--ink-3)' }}>from due date</span>
                 </div>
               ) : (
                 <select style={inputStyle} value={form.urgency ?? 'someday'} onChange={e => set('urgency', e.target.value)}>
@@ -557,7 +610,7 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
                 {form.due_date && (
                   <button
                     onClick={() => set('due_date', null)}
-                    title="Clear date"
+                    title="Clear date" aria-label="Clear date"
                     style={{
                       flexShrink: 0, padding: '0 8px', borderRadius: 6,
                       border: '1px solid var(--glass-border)', background: 'transparent',
@@ -588,7 +641,15 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
             </div>
             <div style={rowStyle}>
               <label style={labelStyle}>Tags (comma-sep)</label>
-              <input style={inputStyle} value={tagInput} onChange={e => setTagInput(e.target.value)} placeholder="design, frontend" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <input style={{ ...inputStyle, width: '100%' }} value={tagInput} onChange={e => setTagInput(e.target.value)} placeholder="design, frontend" />
+                {/* Live preview — the colours here are the colours the card will use. */}
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                  {tagInput.split(',').map(t => t.trim()).filter(Boolean).map(t => (
+                    <span key={t} style={tagChip(t)}>{t}</span>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -703,7 +764,7 @@ function ProjectSelect({ entities, value, onChange, onCreated, inputStyle }: {
       </select>
       <button
         onClick={() => setAdding(true)}
-        title="New project"
+        title="New project" aria-label="New project"
         style={{
           padding: '0 8px', borderRadius: 6, border: '1px solid var(--glass-border)',
           background: 'transparent', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 14, lineHeight: 1,
@@ -772,7 +833,7 @@ function ManageProjectsModal({ onClose, onChange }: {
         zIndex: 61, display: 'flex', flexDirection: 'column',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--glass-border)', flexShrink: 0 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>Manage Projects</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>Manage Projects</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)' }}><X size={14} /></button>
         </div>
         <div style={{ overflowY: 'auto', padding: '10px 16px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -792,22 +853,22 @@ function ManageProjectsModal({ onClose, onChange }: {
               ) : (
                 <>
                   <span style={{ flex: 1, fontSize: 12, color: 'var(--ink-5)' }}>{e.name}</span>
-                  {e.kind && <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', border: '1px solid var(--glass-border)', borderRadius: 3, padding: '1px 5px' }}>{e.kind}</span>}
-                  <button onClick={() => { setEditingId(e.id); setEditName(e.name) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 12 }} title="Rename">✎</button>
-                  <button onClick={() => patch(e.id, { metadata: { archived: true } })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ok)', fontSize: 11 }} title="Mark complete">✓</button>
-                  <button onClick={() => remove(e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Delete"><Trash2 size={12} /></button>
+                  {e.kind && <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', border: '1px solid var(--glass-border)', borderRadius: 3, padding: '1px 5px' }}>{e.kind}</span>}
+                  <button onClick={() => { setEditingId(e.id); setEditName(e.name) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 12 }} title="Rename" aria-label="Rename">✎</button>
+                  <button onClick={() => patch(e.id, { metadata: { archived: true } })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ok)', fontSize: 11 }} title="Mark complete" aria-label="Mark complete">✓</button>
+                  <button onClick={() => remove(e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Delete" aria-label="Delete"><Trash2 size={12} /></button>
                 </>
               )}
             </div>
           ))}
           {archived.length > 0 && (
             <>
-              <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--glass-border)' }}>Completed</div>
+              <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--glass-border)' }}>Completed</div>
               {archived.map(e => (
                 <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', opacity: 0.5 }}>
                   <span style={{ flex: 1, fontSize: 12, color: 'var(--ink-4)', textDecoration: 'line-through' }}>{e.name}</span>
-                  <button onClick={() => patch(e.id, { metadata: { archived: false } })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 10 }} title="Restore">↩</button>
-                  <button onClick={() => remove(e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Delete"><Trash2 size={12} /></button>
+                  <button onClick={() => patch(e.id, { metadata: { archived: false } })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 10 }} title="Restore" aria-label="Restore">↩</button>
+                  <button onClick={() => remove(e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Delete" aria-label="Delete"><Trash2 size={12} /></button>
                 </div>
               ))}
             </>
@@ -885,7 +946,7 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
           <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--ink-3)', alignSelf: 'center', marginBottom: 4 }} />
         )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
             New Task
           </span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)' }}>
@@ -911,7 +972,7 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
             {dueDate && (
               <button
                 onClick={() => { setDueDate(''); setUrgency('someday') }}
-                title="Clear date"
+                title="Clear date" aria-label="Clear date"
                 style={{
                   flexShrink: 0, padding: '0 8px', borderRadius: 6,
                   border: '1px solid var(--glass-border)', background: 'transparent',
@@ -932,7 +993,7 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
           {dueDate ? (
             <div style={{ ...inputStyle, color: URGENCY_COLORS[urgencyFromDate(dueDate)], fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>
               {URGENCY_LABELS[urgencyFromDate(dueDate)]}
-              <span style={{ fontSize: 9, color: 'var(--ink-3)' }}>from due date</span>
+              <span style={{ fontSize: 10, color: 'var(--ink-3)' }}>from due date</span>
             </div>
           ) : (
             <select style={inputStyle} value={urgency} onChange={e => setUrgency(e.target.value as Urgency)}>
@@ -1123,6 +1184,10 @@ function TasksInner() {
     }
   }
 
+  // Recomputed from what's loaded, so a tag that stops being ubiquitous starts
+  // showing again on its own.
+  const tagFreq = useMemo(() => tagFrequency(tasks), [tasks])
+
   const views: { id: View; label: string }[] = [
     { id: 'kanban', label: 'Kanban' },
     { id: 'forecast', label: 'Forecast' },
@@ -1195,7 +1260,7 @@ function TasksInner() {
 
       {/* Content */}
       {!loading && (
-        <>
+        <TagFreqContext.Provider value={tagFreq}>
           {view === 'kanban' && (
             <KanbanView tasks={sortTasks(tasks, sort)} onSelect={setSelectedTask} onComplete={handleComplete} />
           )}
@@ -1205,7 +1270,7 @@ function TasksInner() {
           {view === 'category' && (
             <CategoryView tasks={sortTasks(tasks, sort)} entities={entities} onSelect={setSelectedTask} onComplete={handleComplete} />
           )}
-        </>
+        </TagFreqContext.Provider>
       )}
 
       {/* Drawer */}
@@ -1249,7 +1314,7 @@ function TasksInner() {
             boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
             zIndex: 40,
           }}
-          title="New task"
+          title="New task" aria-label="New task"
         >
           <Plus size={22} strokeWidth={2.5} />
         </button>

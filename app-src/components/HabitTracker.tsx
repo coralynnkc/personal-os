@@ -160,7 +160,7 @@ function ScoreRing({ score, monthColor, size = 36 }: { score: number; monthColor
       }}>
         <span style={{
           fontFamily: 'var(--font-mono)',
-          fontSize: 9,
+          fontSize: 10,
           fontWeight: 700,
           color: monthColor,
           lineHeight: 1,
@@ -361,7 +361,7 @@ export default function HabitTracker() {
         padding: '12px 16px 10px',
         borderBottom: '1px solid var(--glass-border)',
       }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', color: 'var(--ink-4)', textTransform: 'uppercase' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', color: 'var(--ink-4)', textTransform: 'uppercase' }}>
           Habit Tracker
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -392,7 +392,7 @@ export default function HabitTracker() {
             width: 22, height: 22, borderRadius: 5,
             background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
             color: 'var(--ink-4)', cursor: 'pointer',
-          }} title="Add habit">
+          }} title="Add habit" aria-label="Add habit">
             <Plus size={12} />
           </button>
         </div>
@@ -509,7 +509,7 @@ function TodayView({
   }
 
   const habitBtnBase: React.CSSProperties = {
-    fontSize: 9, padding: '4px 8px', borderRadius: 5,
+    fontSize: 10, padding: '4px 8px', borderRadius: 5,
     border: '1px solid var(--glass-border)',
     cursor: 'pointer', letterSpacing: '0.03em', whiteSpace: 'nowrap',
   }
@@ -648,7 +648,7 @@ function TodayView({
                   background: 'transparent', border: 'none',
                   color: 'var(--ink-3)', cursor: 'pointer', fontSize: 10,
                 }}
-                title="Edit habit"
+                title="Edit habit" aria-label="Edit habit"
               >
                 ✎
               </button>
@@ -660,7 +660,7 @@ function TodayView({
                   background: 'transparent', border: 'none',
                   color: 'var(--ink-3)', cursor: 'pointer',
                 }}
-                title="Delete habit"
+                title="Delete habit" aria-label="Delete habit"
               >
                 <Trash2 size={11} />
               </button>
@@ -731,7 +731,7 @@ function MonthView({
         </button>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-6)' }}>{MONTH_NAMES[month]}</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--ink-4)' }}>{year}</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-4)' }}>{year}</div>
         </div>
         <button onClick={() => onShift(1)} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', padding: '4px 6px' }}>
           <ChevronRight size={14} />
@@ -747,14 +747,14 @@ function MonthView({
           </colgroup>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--ink-3)', fontWeight: 400, borderBottom: '1px solid var(--glass-border)', fontFamily: 'var(--font-mono)', fontSize: 9 }}>habit</th>
+              <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--ink-3)', fontWeight: 400, borderBottom: '1px solid var(--glass-border)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>habit</th>
               {days.map(d => (
                 <th key={d} style={{
                   paddingBottom: 4, paddingTop: 4, textAlign: 'center',
                   borderBottom: '1px solid var(--glass-border)',
                   color: d === todayDay ? monthColor : 'var(--ink-3)',
                   fontWeight: d === todayDay ? 700 : 400,
-                  fontFamily: 'var(--font-mono)', fontSize: 8,
+                  fontFamily: 'var(--font-mono)', fontSize: 9,
                 }}>{d}</th>
               ))}
             </tr>
@@ -767,7 +767,7 @@ function MonthView({
                 <tr key={habit.id}>
                   <td title={habit.name} style={{ padding: '3px 6px', color: 'var(--ink-5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {habit.name}
-                    {habit.id === STORY_ID && <span style={{ marginLeft: 4, fontSize: 8, opacity: 0.4 }}>🔒</span>}
+                    {habit.id === STORY_ID && <span style={{ marginLeft: 4, fontSize: 9, opacity: 0.4 }}>🔒</span>}
                   </td>
                   {days.map(d => {
                     const level = getCellLevel(habit, d)
@@ -866,7 +866,7 @@ function HabitModal({
 
           {/* Name */}
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', fontSize: 9, color: 'var(--ink-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Name</label>
+            <label style={{ display: 'block', fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Name</label>
             <input
               autoFocus
               value={name}
@@ -883,7 +883,7 @@ function HabitModal({
 
           {/* Levels */}
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', fontSize: 9, color: 'var(--ink-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
               Levels ({levels.length}/5)
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

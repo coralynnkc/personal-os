@@ -31,7 +31,7 @@ export default function WaveStrip({ apps }: { apps: Application[] }) {
 
   return (
     <Panel
-      title="Waves"
+      title="Waves" aria-label="Waves"
       right={
         <span style={{ ...labelStyle, color: actionable > 0 ? 'var(--warn)' : 'var(--ink-4)' }}>
           {actionable > 0 ? `${actionable} open, not applied` : 'nothing waiting on you'}

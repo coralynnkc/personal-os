@@ -94,7 +94,7 @@ export default function RhythmCard() {
 
   return (
     <Panel
-      title="Daily rhythm"
+      title="Daily rhythm" aria-label="Daily rhythm"
       right={
         tasks.length > 0 ? (
           <span style={{ ...labelStyle, color: doneCount === tasks.length ? 'var(--ok)' : 'var(--ink-4)', fontVariantNumeric: 'tabular-nums' }}>

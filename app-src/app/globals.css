@@ -26,6 +26,10 @@
   --radius-sm: 8px;
 
   --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* The design is dark-only; tell the browser so native selects, scrollbars
+     and date pickers stop rendering light against it. */
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -47,5 +51,23 @@ body {
 @media (prefers-reduced-motion: reduce) {
   @keyframes pomodoro-pulse {
     0%, 100% { opacity: 1; }
+  }
+}
+
+/* Keyboard focus was invisible app-wide: `outline: 'none'` is set inline on
+   inputs and buttons, and inline styles beat a stylesheet — hence !important.
+   :focus-visible means mouse clicks stay unadorned. */
+:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
   }
 }

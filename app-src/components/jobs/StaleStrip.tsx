@@ -114,7 +114,7 @@ export default function StaleStrip({
 
   return (
     <Panel
-      title="Stale portals"
+      title="Stale portals" aria-label="Stale portals"
       right={
         <span style={{ ...labelStyle, color: stale.length > 0 ? 'var(--warn)' : 'var(--ok)' }}>
           {stale.length === 0

@@ -91,7 +91,7 @@ function Popover() {
     >
       {/* Phase + clock */}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: PHASE_COLOR[state.phase], ...MONO }}>
+        <span style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: PHASE_COLOR[state.phase], ...MONO }}>
           {PHASE_LABEL[state.phase]}
         </span>
         <span style={{ fontSize: 26, color: 'var(--ink-6)', letterSpacing: '0.02em', ...MONO }}>

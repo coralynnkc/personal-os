@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { MapPin } from 'lucide-react'
 import { USER_TZ } from '@/lib/dateKey'
+import { ErrorRow } from './jobs/ui'
 
 type CalEvent = {
   id: string
@@ -44,13 +45,25 @@ export default function Calendar() {
   const [events, setEvents] = useState<CalEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState<string>(() => localDateKey(new Date()))
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true)
+    setError(null)
     fetch('/api/calendar')
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then(data => { setEvents(data ?? []); setLoading(false) })
-      .catch(err => { console.error('Calendar fetch error:', err); setLoading(false) })
+      .catch(err => {
+        console.error('Calendar fetch error:', err)
+        setError("Couldn't load the calendar.")
+        setLoading(false)
+      })
   }, [])
+
+  useEffect(() => { load() }, [load])
 
   const days = getDayStrip()
   const todayKey = localDateKey(new Date())
@@ -82,7 +95,7 @@ export default function Calendar() {
         padding: '12px 16px 10px', borderBottom: '1px solid var(--glass-border)',
       }}>
         <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 9,
+          fontFamily: 'var(--font-mono)', fontSize: 10,
           letterSpacing: '0.14em', color: 'var(--ink-4)', textTransform: 'uppercase',
         }}>
           Calendar
@@ -117,7 +130,7 @@ export default function Calendar() {
               }}
             >
               <span style={{
-                fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.08em',
+                fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em',
                 textTransform: 'uppercase',
                 color: isToday ? 'var(--accent)' : 'var(--ink-3)',
               }}>
@@ -140,7 +153,9 @@ export default function Calendar() {
 
       {/* Event list */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {!loading && selectedEvents.length === 0 && (
+        {error && <ErrorRow message={error} onRetry={load} />}
+
+        {!loading && !error && selectedEvents.length === 0 && (
           <div style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic', padding: '8px 4px' }}>
             No events.
           </div>
@@ -162,7 +177,7 @@ export default function Calendar() {
             >
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <span style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--accent)',
+                  fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)',
                   letterSpacing: '0.06em', flexShrink: 0,
                 }}>
                   {formatTime(ev.start, ev.allDay)}
