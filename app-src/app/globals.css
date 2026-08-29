@@ -37,3 +37,15 @@ body {
   font-size: 13px;
   min-height: 100vh;
 }
+
+/* Pomodoro phase dot — a running clock pulses, a paused one holds steady. */
+@keyframes pomodoro-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes pomodoro-pulse {
+    0%, 100% { opacity: 1; }
+  }
+}

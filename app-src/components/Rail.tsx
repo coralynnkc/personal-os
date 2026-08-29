@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { USER_TZ } from '@/lib/dateKey'
+import PomodoroRail from './pomodoro/PomodoroRail'
 
 function Clock() {
   const [display, setDisplay] = useState('')
@@ -80,7 +81,8 @@ export default function Rail() {
         })}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <PomodoroRail />
         <Clock />
       </div>
     </nav>
