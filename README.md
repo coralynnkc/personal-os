@@ -4,13 +4,20 @@ A single-page personal dashboard. Password-gated, self-hosted, built for one.
 
 [View design mockup](design/mockup.html)
 
-## Widgets
+## Pages
+
+| Page | What it does |
+|---|---|
+| **/** | Dashboard — today's tasks, calendar, habits |
+| **/tasks** | Full task list |
+| **/jobs** | Job search — application pipeline, company research, stale-portal queue |
+
+### Dashboard widgets
 
 | Widget | What it does |
 |---|---|
 | **Today's Tasks** | Tasks scoped to today/this week, pulled from Supabase |
 | **Calendar** | 7-day strip synced from a Google Calendar iCal feed |
-| **Job Search** | Daily prep checklist (LeetCode/system-design rhythm + application-wave milestones), stored in localStorage |
 | **Habit Tracker** | Configurable daily habits with multi-level completion |
 
 ## Stack
@@ -21,7 +28,12 @@ Next.js (App Router) for the frontend and API routes, Supabase for Postgres (acc
 
 ### 1. Database
 
-Run `app-src/supabase/migrations/0001_init.sql` in your Supabase project's SQL editor. It creates the `tasks`, `entities`, `daily_logs`, `habit_config`, and `audit_logs` tables with RLS enabled; all access goes through the service role key in API routes.
+Run the migrations in `app-src/supabase/migrations/` in your Supabase project's SQL editor, in order:
+
+- `0001_init.sql` — `tasks`, `entities`, `daily_logs`, `habit_config`, `audit_logs`
+- `0002_job_search.sql` — `applications` (the job-search pipeline)
+
+All tables have RLS enabled; access goes through the service role key in API routes.
 
 ### 2. Environment variables
 
@@ -59,6 +71,30 @@ Open [http://localhost:3000](http://localhost:3000) — you'll be redirected to 
 ### 4. Deploy
 
 Push to GitHub and import into Vercel. Add the environment variables from step 2 in the Vercel dashboard under Settings → Environment Variables.
+
+## Job search
+
+`/jobs` replaces a two-sheet tracking spreadsheet.
+
+- **Pipeline** — applications as a board (or a table, for bulk edits), grouped by status. Opening a card shows the research for that company alongside it.
+- **Targets** — the company research library, filterable by industry, role category, and competitiveness. "Track" promotes a company into the pipeline with the research already linked.
+- **Stale portals** — every watched application whose portal hasn't been checked in 14 days, oldest first. One click opens the portal and stamps today's date.
+- **Daily rhythm** — the LeetCode/system-design cadence, materialised as real `tasks` rows so it shows up in Today's Tasks and counts toward story points.
+
+Companies live in `entities` with `kind = 'company'` and their research in `metadata`; applications get their own table because they have a lifecycle worth filtering and sorting on.
+
+### Importing an existing spreadsheet
+
+A two-stage, re-runnable import. Stage 1 writes nothing to the database, so you can check the fuzzy company matches before committing them:
+
+```bash
+cd app-src
+python3 scripts/parse-job-search-xlsx.py          # xlsx  → scripts/job-search-import.json
+node scripts/import-job-search.mjs --dry-run      # report what would change
+node scripts/import-job-search.mjs                # write to Supabase
+```
+
+Stage 1 promotes the things the spreadsheet stored as prose into real columns — the date inside `"Not open (checked Jul 10)"` becomes a `portal_last_checked` date, and the rest of that sentence becomes a constrained `status` — and prints every company link it made plus every row it could not match. Unmatched rows still import; link them by hand in the pipeline drawer.
 
 ## MCP connector
 
@@ -109,9 +145,12 @@ app-src/
     api/          # API routes (auth, tasks, entities, habits, calendar, mcp)
     login/        # Login page
     tasks/        # Full task list view
+    jobs/         # Job search — pipeline, targets, stale portals
   components/     # Dashboard widgets
-  lib/            # Supabase client, auth helpers
+    jobs/         # Job search tab components
+  lib/            # Supabase client, auth helpers, job-search domain types
     mcp/          # MCP tool definitions and argument validation
+  scripts/        # One-off maintenance scripts (spreadsheet import)
   supabase/
     migrations/   # DB schema
 design/

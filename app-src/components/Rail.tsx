@@ -56,7 +56,7 @@ export default function Rail() {
       </span>
 
       <div style={{ display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 8, padding: 3 }}>
-        {([['/', 'Home'], ['/tasks', 'Tasks']] as const).map(([href, label]) => {
+        {([['/', 'Home'], ['/tasks', 'Tasks'], ['/jobs', 'Jobs']] as const).map(([href, label]) => {
           const active = href === '/' ? path === '/' : path.startsWith(href)
           return (
             <Link
