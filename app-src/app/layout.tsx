@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import Rail from '@/components/Rail'
+import PomodoroProvider from '@/components/pomodoro/PomodoroProvider'
 import RefreshOnFocus from '@/components/RefreshOnFocus'
 import './globals.css'
 
@@ -16,11 +17,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <Rail />
-        <RefreshOnFocus />
-        <main style={{ flex: 1 }}>
-          {children}
-        </main>
+        {/* The pomodoro lives above the router outlet so a running session
+            survives navigation between routes. */}
+        <PomodoroProvider>
+          <Rail />
+          <RefreshOnFocus />
+          <main style={{ flex: 1 }}>
+            {children}
+          </main>
+        </PomodoroProvider>
       </body>
     </html>
   )

@@ -20,6 +20,17 @@ A single-page personal dashboard. Password-gated, self-hosted, built for one.
 | **Calendar** | 7-day strip synced from a Google Calendar iCal feed |
 | **Habit Tracker** | Configurable daily habits with multi-level completion |
 
+### Pomodoro
+
+Lives in the nav rail, so a session survives navigating between pages. Start
+one from the ▶ on any task row to tag the session with that task. Timing runs
+off a target timestamp held in `localStorage`, so a background tab, a refresh,
+or a closed laptop can't drift it — a session that ends while the tab is shut
+is recovered and logged with its true span on the next load.
+
+Completed sessions append to `daily_logs.notes.pomodoros`; durations are
+configurable and stored in `habit_config.pomodoro`.
+
 ## Stack
 
 Next.js (App Router) for the frontend and API routes, Supabase for Postgres (accessed server-side via the service role key), and Vercel for deployment. Auth is a single shared password with no OAuth or user accounts.
@@ -32,6 +43,7 @@ Run the migrations in `app-src/supabase/migrations/` in your Supabase project's 
 
 - `0001_init.sql` — `tasks`, `entities`, `daily_logs`, `habit_config`, `audit_logs`
 - `0002_job_search.sql` — `applications` (the job-search pipeline)
+- `0003_pomodoro.sql` — `habit_config.pomodoro` (timer durations)
 
 All tables have RLS enabled; access goes through the service role key in API routes.
 
@@ -142,12 +154,13 @@ This is a public HTTPS endpoint with service-role database access behind one sha
 ```
 app-src/
   app/
-    api/          # API routes (auth, tasks, entities, habits, calendar, mcp)
+    api/          # API routes (auth, tasks, entities, habits, pomodoro, calendar, mcp)
     login/        # Login page
     tasks/        # Full task list view
     jobs/         # Job search — pipeline, targets, stale portals
   components/     # Dashboard widgets
     jobs/         # Job search tab components
+    pomodoro/     # Rail timer, provider, task-row start button
   lib/            # Supabase client, auth helpers, job-search domain types
     mcp/          # MCP tool definitions and argument validation
   scripts/        # One-off maintenance scripts (spreadsheet import)

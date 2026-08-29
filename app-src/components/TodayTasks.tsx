@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Check } from 'lucide-react'
 import { toDateKey, USER_TZ } from '@/lib/dateKey'
+import StartFocusButton from './pomodoro/StartFocusButton'
 
 type Task = {
   id: string
@@ -28,7 +29,7 @@ type Placement = { top: number; left: number; width: number }
 
 const TOOLTIP_GAP = 4
 const TOOLTIP_INSET = 8   // keep this far off every viewport edge
-const TOOLTIP_INDENT = 24 // line up with the task row, not the checkbox
+const TOOLTIP_INDENT = 52 // line up with the task row, past the checkbox and ▶
 
 function place(anchor: HTMLElement, height: number): Placement {
   const r = anchor.getBoundingClientRect()
@@ -219,6 +220,9 @@ export default function TodayTasks() {
             >
               {completing.has(task.id) && <Check size={11} strokeWidth={3} color="var(--bg)" />}
             </button>
+
+            {/* Start a focus session on this task */}
+            <StartFocusButton taskId={task.id} taskTitle={task.title} size={16} />
 
             {/* Task row */}
             <button

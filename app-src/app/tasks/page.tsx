@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, X, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { USER_TZ } from '@/lib/dateKey'
+import StartFocusButton from '@/components/pomodoro/StartFocusButton'
 
 function useMobile() {
   const [mobile, setMobile] = useState(false)
@@ -148,6 +149,7 @@ function TaskCard({ task, onClick, onComplete }: {
             {task.points}pt
           </span>
         )}
+        <StartFocusButton taskId={task.id} taskTitle={task.title} size={16} />
       </div>
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', paddingLeft: 24 }}>
         {task.due_date && (
