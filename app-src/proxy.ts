@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySessionCookie, secretsEqual, COOKIE } from '@/lib/auth'
 
-const PUBLIC = ['/login', '/api/auth/login', '/api/auth/logout']
+// /api/mcp is exempt from the gate below because it does its own auth: MCP
+// clients send `Authorization: Bearer`, not `x-api-secret`, and a client that
+// fails the gate gets a 307 to /login it cannot follow. The route itself
+// fail-closed rejects anything without MCP_SECRET, and the prefix match here
+// covers only /api/mcp.
+const PUBLIC = ['/login', '/api/auth/login', '/api/auth/logout', '/api/mcp']
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
