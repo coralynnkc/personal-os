@@ -8,6 +8,7 @@ import { toDateKey, USER_TZ } from '@/lib/dateKey'
 type Task = {
   id: string
   title: string
+  description: string | null
   urgency: 'today' | 'week' | 'month' | 'someday' | null
   key: boolean
   points: number | null
@@ -27,6 +28,7 @@ export default function TodayTasks() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<Set<string>>(new Set())
+  const [hovered, setHovered] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/tasks?effective_today=true&status=open')
@@ -112,8 +114,10 @@ export default function TodayTasks() {
         {tasks.map(task => (
           <div
             key={task.id}
+            onMouseEnter={() => setHovered(task.id)}
+            onMouseLeave={() => setHovered(h => (h === task.id ? null : h))}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6,
+              display: 'flex', alignItems: 'center', gap: 6, position: 'relative',
             }}
           >
             {/* Complete button */}
@@ -162,7 +166,7 @@ export default function TodayTasks() {
               onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--glass-border)')}
             >
               <span style={{ color: 'var(--accent)', fontSize: 10, flexShrink: 0 }}>★</span>
-              <span style={{ flex: 1, fontSize: 11, color: 'var(--ink-6)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--ink-6)', lineHeight: 1.3, overflowWrap: 'anywhere' }}>
                 {task.title}
               </span>
               {task.points != null && (
@@ -191,6 +195,25 @@ export default function TodayTasks() {
                 ) : null
               })()}
             </button>
+
+            {/* Description tooltip */}
+            {hovered === task.id && task.description && (
+              <div
+                role="tooltip"
+                style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', left: 24, right: 0,
+                  zIndex: 20, pointerEvents: 'none',
+                  padding: '6px 8px', borderRadius: 6,
+                  background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
+                  backdropFilter: 'blur(16px)',
+                  boxShadow: '0 6px 18px oklch(0 0 0 / 0.35)',
+                  fontSize: 10, lineHeight: 1.4, color: 'var(--ink-5)',
+                  whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
+                }}
+              >
+                {task.description}
+              </div>
+            )}
           </div>
         ))}
       </div>

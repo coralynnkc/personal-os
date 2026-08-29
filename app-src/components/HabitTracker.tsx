@@ -765,7 +765,7 @@ function MonthView({
 
               return (
                 <tr key={habit.id}>
-                  <td style={{ padding: '3px 6px', color: 'var(--ink-5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <td title={habit.name} style={{ padding: '3px 6px', color: 'var(--ink-5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {habit.name}
                     {habit.id === STORY_ID && <span style={{ marginLeft: 4, fontSize: 8, opacity: 0.4 }}>🔒</span>}
                   </td>
@@ -800,7 +800,7 @@ function MonthView({
           const score = habitMonthScore(logs, habit.id, habit.levels, year, month, monthStoryPoints)
           return (
             <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-              <span style={{ width: 100, fontSize: 10, color: 'var(--ink-4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{habit.name}</span>
+              <span title={habit.name} style={{ width: 100, fontSize: 10, color: 'var(--ink-4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{habit.name}</span>
               <div style={{ flex: 1, height: 4, background: 'var(--ink-1)', borderRadius: 2, overflow: 'hidden' }}>
                 <div style={{ height: '100%', borderRadius: 2, background: monthColor, width: `${score * 10}%`, opacity: 0.6 + score * 0.04 }} />
               </div>
