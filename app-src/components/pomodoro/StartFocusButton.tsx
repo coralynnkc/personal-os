@@ -28,7 +28,7 @@ export default function StartFocusButton({ taskId, taskTitle, size = 16 }: {
         flexShrink: 0,
         width: size + 6, height: size + 6,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 5, cursor: 'pointer', padding: 0,
+        borderRadius: 'var(--radius-xs)', cursor: 'pointer', padding: 0,
         background: active ? 'var(--accent-dim)' : 'transparent',
         border: `1px solid ${active ? 'var(--accent-border)' : 'transparent'}`,
         color: active ? 'var(--accent)' : 'var(--ink-3)',

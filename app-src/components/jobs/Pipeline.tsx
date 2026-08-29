@@ -13,17 +13,18 @@ function Card({ app, today, onOpen }: { app: Application; today: string; onOpen:
   return (
     <button
       onClick={onOpen}
+      className="tile"
       style={{
         width: '100%', textAlign: 'left', cursor: 'pointer',
-        display: 'flex', flexDirection: 'column', gap: 4,
-        padding: '8px 10px', borderRadius: 'var(--radius-sm)',
-        background: 'var(--ink-1)',
-        border: `1px solid ${stale ? 'var(--warn)' : 'var(--glass-border)'}`,
+        display: 'flex', flexDirection: 'column', gap: 5,
+        padding: '10px 12px',
+        // Only a stale card draws its own edge; the rest lean on the fill.
+        borderColor: stale ? 'var(--warn)' : undefined,
       }}
     >
-      <span style={{ fontSize: 13, color: 'var(--ink-6)', lineHeight: 1.3 }}>{app.company_name}</span>
+      <span style={{ fontSize: 'var(--text-base)', color: 'var(--ink-6)', lineHeight: 1.4 }}>{app.company_name}</span>
       {app.role_title && (
-        <span style={{ fontSize: 11, color: 'var(--ink-4)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-4)', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {app.role_title}
         </span>
       )}
@@ -60,14 +61,14 @@ function Board({ apps, today, onOpen }: { apps: Application[]; today: string; on
         {columns.map(col => (
           <div key={col.key} style={{ width: 190, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, padding: '0 2px' }}>
-              <span style={{ ...labelStyle, color: col.color }}>{col.label}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums' }}>
+              <span className="section-title" style={{ color: col.color }}>{col.label}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums' }}>
                 {col.rows.length}
               </span>
             </div>
             {col.rows.map(a => <Card key={a.id} app={a} today={today} onOpen={() => onOpen(a)} />)}
             {col.rows.length === 0 && (
-              <div style={{ fontSize: 11, color: 'var(--ink-2)', padding: '6px 2px', fontStyle: 'italic' }}>—</div>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-2)', padding: '6px 2px', fontStyle: 'italic' }}>—</div>
             )}
           </div>
         ))}
@@ -77,7 +78,7 @@ function Board({ apps, today, onOpen }: { apps: Application[]; today: string; on
 }
 
 const cellStyle = { padding: '6px 10px', fontSize: 13, color: 'var(--ink-5)', borderTop: '1px solid var(--glass-border)', verticalAlign: 'middle' } as const
-const inputStyle = { fontSize: 12, color: 'var(--ink-6)', background: 'var(--ink-1)', border: '1px solid var(--glass-border)', borderRadius: 5, padding: '3px 6px' } as const
+const inputStyle = { fontSize: 'var(--text-sm)', color: 'var(--ink-6)', background: 'var(--ink-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-xs)', padding: '4px 8px' } as const
 
 /** Table view — the shape you want for bulk edits, which a board is bad at. */
 function Table({

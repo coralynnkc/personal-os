@@ -3,6 +3,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, ChevronLeft, ChevronRight, X, Trash2 } from 'lucide-react'
 import { habitDateKey, USER_TZ } from '@/lib/dateKey'
+import { ErrorRow } from './jobs/ui'
+
+// `fetch` only rejects on a network failure, so a 500 came back through the
+// happy path and got rendered as an empty grid. These throw on both.
+async function getJson(url: string) {
+  const r = await fetch(url)
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}
+
+async function post(url: string, body: unknown) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -160,7 +179,7 @@ function ScoreRing({ score, monthColor, size = 36 }: { score: number; monthColor
       }}>
         <span style={{
           fontFamily: 'var(--font-mono)',
-          fontSize: 10,
+          fontSize: 'var(--text-xs)',
           fontWeight: 700,
           color: monthColor,
           lineHeight: 1,
@@ -187,18 +206,24 @@ export default function HabitTracker() {
   const [loading, setLoading] = useState(true)
 
   const dirtyRef = useRef(false)
+  const [error, setError] = useState<string | null>(null)
 
   const monthColor = MONTH_COLORS[month]
   const today = localDateKey()
 
   // ── Fetch config ────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    fetch('/api/habits/config')
-      .then(r => r.json())
-      .then(({ habits: h }) => setHabits(h ?? []))
-      .catch(e => console.error('Failed to load habit config:', e))
+  const fetchConfig = useCallback(async () => {
+    try {
+      const { habits: h } = await getJson('/api/habits/config')
+      setHabits(h ?? [])
+    } catch (e) {
+      console.error('Failed to load habit config:', e)
+      setError("Couldn't load your habits.")
+    }
   }, [])
+
+  useEffect(() => { fetchConfig() }, [fetchConfig])
 
   // ── Fetch logs for visible month ────────────────────────────────────────────
 
@@ -208,8 +233,8 @@ export default function HabitTracker() {
         { log_date: string; notes: DayNotes }[],
         Record<string, number>
       ] = await Promise.all([
-        fetch(`/api/habits/logs?year=${y}&month=${m + 1}`).then(r => r.json()),
-        fetch(`/api/habits/story-points?year=${y}&month=${m + 1}`).then(r => r.json()),
+        getJson(`/api/habits/logs?year=${y}&month=${m + 1}`),
+        getJson(`/api/habits/story-points?year=${y}&month=${m + 1}`),
       ])
 
       if (!dirtyRef.current) {
@@ -218,8 +243,12 @@ export default function HabitTracker() {
         setLogs(prev => ({ ...prev, ...map }))
         setMonthStoryPoints(spByDay ?? {})
       }
+      setError(null)
     } catch (e) {
+      // An empty grid is indistinguishable from a month you logged nothing in,
+      // which is exactly the wrong thing for an outage to look like.
       console.error('Failed to load habit logs:', e)
+      setError("Couldn't load this month's logs.")
     } finally {
       setLoading(false)
     }
@@ -235,10 +264,11 @@ export default function HabitTracker() {
 
   const fetchStoryPoints = useCallback(async () => {
     try {
-      const { points } = await fetch(`/api/habits/story-points?date=${today}`).then(r => r.json())
+      const { points } = await getJson(`/api/habits/story-points?date=${today}`)
       setStoryPoints(points ?? 0)
     } catch (e) {
       console.error('Failed to load story points:', e)
+      setError("Couldn't load today's story points.")
     }
   }, [today])
 
@@ -251,10 +281,20 @@ export default function HabitTracker() {
     return () => ch.close()
   }, [fetchStoryPoints])
 
+  const retry = useCallback(() => {
+    setError(null)
+    setLoading(true)
+    dirtyRef.current = false
+    fetchConfig()
+    fetchLogs(year, month)
+    fetchStoryPoints()
+  }, [fetchConfig, fetchLogs, fetchStoryPoints, year, month])
+
   // ── Log a habit ─────────────────────────────────────────────────────────────
 
-  function logHabit(habitId: string, date: string, level: number) {
+  async function logHabit(habitId: string, date: string, level: number) {
     dirtyRef.current = true
+    const previous = logs[date]?.habits?.[habitId]
 
     // Optimistic update
     setLogs(prev => ({
@@ -265,11 +305,21 @@ export default function HabitTracker() {
       },
     }))
 
-    fetch('/api/habits/logs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, habitId, level }),
-    }).catch(e => console.error('Failed to save habit log:', e))
+    try {
+      await post('/api/habits/logs', { date, habitId, level })
+      setError(null)
+    } catch (e) {
+      // Roll the cell back. Leaving it lit is worse than not registering the
+      // tap: it claims something is written that isn't.
+      console.error('Failed to save habit log:', e)
+      setLogs(prev => {
+        const habits = { ...(prev[date]?.habits ?? {}) }
+        if (previous === undefined) delete habits[habitId]
+        else habits[habitId] = previous
+        return { ...prev, [date]: { ...prev[date], habits } }
+      })
+      setError("Couldn't save that — tap it again.")
+    }
   }
 
   // ── Sleep buttons ───────────────────────────────────────────────────────────
@@ -277,52 +327,46 @@ export default function HabitTracker() {
   async function handleSleep(event: 'bedtime' | 'waketime') {
     dirtyRef.current = true
     try {
-      await fetch('/api/habits/sleep', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event }),
-      })
+      await post('/api/habits/sleep', { event })
 
       // Refresh logs after sleep event
       dirtyRef.current = false
       await fetchLogs(year, month)
+      setError(null)
     } catch (e) {
       console.error('Failed to save sleep event:', e)
+      setError(`Couldn't record ${event === 'bedtime' ? 'bedtime' : 'wake time'}.`)
     }
   }
 
   // ── Add / delete habits ─────────────────────────────────────────────────────
 
-  async function addHabit(name: string, levels: Level[]) {
-    const next = [...habits, { id: uid(), name, levels }]
+  /** Every config write is the whole array, so a rollback is just the old one. */
+  async function saveHabits(next: HabitDef[], what: string) {
+    const previous = habits
     setHabits(next)
-    await fetch('/api/habits/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ habits: next }),
-    }).catch(e => console.error('Failed to save habit config:', e))
+    try {
+      await post('/api/habits/config', { habits: next })
+      setError(null)
+    } catch (e) {
+      console.error(`Failed to ${what} habit:`, e)
+      setHabits(previous)
+      setError(`Couldn't ${what} that habit.`)
+    }
+  }
+
+  async function addHabit(name: string, levels: Level[]) {
+    await saveHabits([...habits, { id: uid(), name, levels }], 'add')
   }
 
   async function editHabit(id: string, name: string, levels: Level[]) {
-    const next = habits.map(h => h.id === id ? { ...h, name, levels } : h)
-    setHabits(next)
-    await fetch('/api/habits/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ habits: next }),
-    }).catch(e => console.error('Failed to save habit edit:', e))
+    await saveHabits(habits.map(h => h.id === id ? { ...h, name, levels } : h), 'save')
   }
 
   async function deleteHabit(id: string) {
     const habit = habits.find(h => h.id === id)
     if (!window.confirm(`Delete habit "${habit?.name ?? id}"?`)) return
-    const next = habits.filter(h => h.id !== id)
-    setHabits(next)
-    await fetch('/api/habits/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ habits: next }),
-    }).catch(e => console.error('Failed to delete habit:', e))
+    await saveHabits(habits.filter(h => h.id !== id), 'delete')
   }
 
   function shiftMonth(delta: number) {
@@ -346,7 +390,7 @@ export default function HabitTracker() {
   if (loading) {
     return (
       <CardShell>
-        <div style={{ padding: '14px 16px', color: 'var(--ink-3)', fontSize: 11 }}>Loading…</div>
+        <div style={{ padding: '16px 18px', color: 'var(--ink-3)', fontSize: 'var(--text-base)' }}>Loading…</div>
       </CardShell>
     )
   }
@@ -358,48 +402,47 @@ export default function HabitTracker() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '12px 16px 10px',
-        borderBottom: '1px solid var(--glass-border)',
+        padding: '14px 18px 10px',
       }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', color: 'var(--ink-4)', textTransform: 'uppercase' }}>
-          Habit Tracker
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className="panel-title">Habits</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* Score ring / month dot */}
           {view === 'today'
             ? <ScoreRing score={dayScore} monthColor={monthColor} />
             : <span style={{ width: 8, height: 8, borderRadius: '50%', background: monthColor, display: 'inline-block' }} />
           }
           {/* View tabs */}
-          <div style={{ display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 6, padding: 3 }}>
+          <div style={{ display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 999, padding: 3 }}>
             {(['today', 'month'] as const).map(v => (
-              <button key={v} onClick={() => setView(v)} style={{
-                padding: '4px 10px',
-                borderRadius: 4,
-                fontSize: 10,
+              <button key={v} onClick={() => setView(v)} className="tap" aria-pressed={view === v} style={{
+                padding: '4px 14px',
+                borderRadius: 999,
+                fontSize: 'var(--text-sm)',
+                fontWeight: 500,
                 color: view === v ? 'var(--ink-6)' : 'var(--ink-4)',
                 background: view === v ? 'var(--ink-2)' : 'transparent',
                 border: 'none',
                 cursor: 'pointer',
-                letterSpacing: '0.04em',
                 textTransform: 'capitalize',
               }}>{v}</button>
             ))}
           </div>
           {/* Add habit button */}
-          <button onClick={() => setShowAddModal(true)} style={{
+          <button onClick={() => setShowAddModal(true)} className="tap" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 22, height: 22, borderRadius: 5,
-            background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
+            width: 26, height: 26, borderRadius: 999,
+            background: 'var(--ink-1)', border: 'none',
             color: 'var(--ink-4)', cursor: 'pointer',
           }} title="Add habit" aria-label="Add habit">
-            <Plus size={12} />
+            <Plus size={14} />
           </button>
         </div>
       </div>
 
+      {error && <ErrorRow message={error} onRetry={retry} />}
+
       {/* Body */}
-      <div style={{ padding: '10px 16px 14px', overflowY: 'auto' }}>
+      <div style={{ padding: '4px 18px 16px', overflowY: 'auto' }}>
         {view === 'today'
           ? <TodayView
               habits={habits}
@@ -450,16 +493,7 @@ export default function HabitTracker() {
 
 function CardShell({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{
-      background: 'var(--glass)',
-      border: '1px solid var(--glass-border)',
-      borderRadius: 'var(--radius)',
-      backdropFilter: 'blur(16px)',
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-    }}>
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {children}
     </div>
   )
@@ -503,15 +537,17 @@ function TodayView({
   if (habits.length === 0 && allHabits.length === 2) {
     return (
       <div style={{ textAlign: 'center', padding: '24px 0' }}>
-        <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 12 }}>No habits yet.</div>
+        <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink-3)', marginBottom: 12 }}>No habits yet.</div>
       </div>
     )
   }
 
+  // Idle level buttons are a bare fill. Nine habit rows of outlined pills was
+  // most of what made this widget feel like a control panel; the selected one
+  // is the only thing that needs to announce itself.
   const habitBtnBase: React.CSSProperties = {
-    fontSize: 10, padding: '4px 8px', borderRadius: 5,
-    border: '1px solid var(--glass-border)',
-    cursor: 'pointer', letterSpacing: '0.03em', whiteSpace: 'nowrap',
+    fontSize: 'var(--text-sm)', padding: '5px 11px', borderRadius: 999,
+    border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
   }
 
   return (
@@ -527,35 +563,32 @@ function TodayView({
           const done = hasBedtime && hasWaketime
 
           return (
-            <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--glass-border)' }}>
-              <span style={{ flex: 1, fontSize: 12, color: done ? color : 'var(--ink-5)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                {done && <span style={{ fontSize: 10, color }}>✓</span>}
+            <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+              <span style={{ flex: 1, fontSize: 'var(--text-base)', color: done ? color : 'var(--ink-5)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {done && <span style={{ fontSize: 'var(--text-sm)', color }}>✓</span>}
                 Sleep
               </span>
               {hours !== undefined && hours > 0 && (
-                <span style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 6px',
-                  borderRadius: 4, background: color ? `${color}30` : 'var(--ink-1)',
-                  color: color ?? 'var(--ink-4)', border: `1px solid ${color ? `${color}60` : 'var(--glass-border)'}`,
+                <span className="chip chip-num" style={{
+                  background: color ? `${color}26` : 'var(--ink-1)',
+                  color: color ?? 'var(--ink-4)',
                 }}>
                   {hours.toFixed(1)}h
                 </span>
               )}
               <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => onSleep('waketime')} style={{
+                <button onClick={() => onSleep('waketime')} className="tap" style={{
                   ...habitBtnBase,
-                  background: hasWaketime ? `${monthColor}25` : 'var(--ink-1)',
+                  background: hasWaketime ? `${monthColor}26` : 'var(--ink-1)',
                   color: hasWaketime ? monthColor : 'var(--ink-5)',
-                  border: hasWaketime ? `1px solid ${monthColor}60` : '1px solid var(--glass-border)',
                   fontWeight: hasWaketime ? 600 : 400,
                 }}>
                   ☀️ {hasWaketime ? formatTime(sleepLog!.waketime!) : 'Wake'}
                 </button>
-                <button onClick={() => onSleep('bedtime')} style={{
+                <button onClick={() => onSleep('bedtime')} className="tap" style={{
                   ...habitBtnBase,
-                  background: hasBedtime ? `${monthColor}25` : 'var(--ink-1)',
+                  background: hasBedtime ? `${monthColor}26` : 'var(--ink-1)',
                   color: hasBedtime ? monthColor : 'var(--ink-5)',
-                  border: hasBedtime ? `1px solid ${monthColor}60` : '1px solid var(--glass-border)',
                   fontWeight: hasBedtime ? 600 : 400,
                 }}>
                   🌙 {hasBedtime ? formatTime(sleepLog!.bedtime!) : 'Bedtime'}
@@ -572,9 +605,9 @@ function TodayView({
           const done = level > 0
 
           return (
-            <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--glass-border)' }}>
-              <span style={{ flex: 1, fontSize: 12, color: done ? color : 'var(--ink-5)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                {done && <span style={{ fontSize: 10 }}>✓</span>}
+            <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+              <span style={{ flex: 1, fontSize: 'var(--text-base)', color: done ? color : 'var(--ink-5)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {done && <span style={{ fontSize: 'var(--text-sm)' }}>✓</span>}
                 Story Points
               </span>
               <div style={{ display: 'flex', gap: 4 }}>
@@ -587,10 +620,9 @@ function TodayView({
                       ...habitBtnBase,
                       display: 'inline-block',
                       background: active ? `${bg}` : 'var(--ink-1)',
-                      color: active ? '#000' : 'var(--ink-4)',
-                      border: active ? `1px solid ${monthColor}` : '1px solid var(--glass-border)',
+                      color: active ? 'var(--ink-0)' : 'var(--ink-4)',
                       fontWeight: active ? 600 : 400,
-                      opacity: active ? 1 : 0.5,
+                      opacity: active ? 1 : 0.45,
                     }}>
                       {lv.label}
                     </span>
@@ -609,12 +641,12 @@ function TodayView({
         return (
           <div
             key={habit.id}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--glass-border)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}
             onMouseEnter={() => setHoveredHabit(habit.id)}
             onMouseLeave={() => setHoveredHabit(null)}
           >
-            <span style={{ flex: 1, fontSize: 12, color: done ? activeColor : 'var(--ink-5)', display: 'flex', alignItems: 'center', gap: 5 }}>
-              {done && <span style={{ fontSize: 10 }}>✓</span>}
+            <span style={{ flex: 1, fontSize: 'var(--text-base)', color: done ? activeColor : 'var(--ink-5)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {done && <span style={{ fontSize: 'var(--text-sm)' }}>✓</span>}
               {habit.name}
             </span>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -626,11 +658,11 @@ function TodayView({
                   <button
                     key={lv.id}
                     onClick={() => onLog(habit.id, today, active ? 0 : lvl)}
+                    className="tap"
                     style={{
                       ...habitBtnBase,
                       background: active ? bg : 'var(--ink-1)',
-                      color: active ? '#000' : 'var(--ink-5)',
-                      border: active ? `1px solid ${monthColor}` : '1px solid var(--glass-border)',
+                      color: active ? 'var(--ink-0)' : 'var(--ink-5)',
                       fontWeight: active ? 600 : 400,
                     }}
                   >
@@ -642,11 +674,12 @@ function TodayView({
             <div style={{ display: 'flex', gap: 2, opacity: hoveredHabit === habit.id ? 1 : 0, transition: 'opacity 0.15s', flexShrink: 0 }}>
               <button
                 onClick={() => onEdit(habit)}
+                className="tap"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 18, height: 18, borderRadius: 4,
+                  width: 22, height: 22, borderRadius: 999,
                   background: 'transparent', border: 'none',
-                  color: 'var(--ink-3)', cursor: 'pointer', fontSize: 10,
+                  color: 'var(--ink-3)', cursor: 'pointer', fontSize: 'var(--text-sm)',
                 }}
                 title="Edit habit" aria-label="Edit habit"
               >
@@ -654,9 +687,10 @@ function TodayView({
               </button>
               <button
                 onClick={() => onDelete(habit.id)}
+                className="tap"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 18, height: 18, borderRadius: 4,
+                  width: 22, height: 22, borderRadius: 999,
                   background: 'transparent', border: 'none',
                   color: 'var(--ink-3)', cursor: 'pointer',
                 }}
@@ -731,7 +765,7 @@ function MonthView({
         </button>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-6)' }}>{MONTH_NAMES[month]}</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-4)' }}>{year}</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--ink-4)' }}>{year}</div>
         </div>
         <button onClick={() => onShift(1)} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', padding: '4px 6px' }}>
           <ChevronRight size={14} />
@@ -740,21 +774,21 @@ function MonthView({
 
       {/* Grid */}
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse', fontSize: 10, width: '100%', tableLayout: 'fixed' }}>
+        <table style={{ borderCollapse: 'collapse', fontSize: 'var(--text-xs)', width: '100%', tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 110 }} />
             {days.map(d => <col key={d} />)}
           </colgroup>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--ink-3)', fontWeight: 400, borderBottom: '1px solid var(--glass-border)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>habit</th>
+              <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--ink-3)', fontWeight: 400, borderBottom: '1px solid var(--glass-border)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>habit</th>
               {days.map(d => (
                 <th key={d} style={{
                   paddingBottom: 4, paddingTop: 4, textAlign: 'center',
                   borderBottom: '1px solid var(--glass-border)',
                   color: d === todayDay ? monthColor : 'var(--ink-3)',
                   fontWeight: d === todayDay ? 700 : 400,
-                  fontFamily: 'var(--font-mono)', fontSize: 9,
+                  fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)',
                 }}>{d}</th>
               ))}
             </tr>
@@ -767,7 +801,7 @@ function MonthView({
                 <tr key={habit.id}>
                   <td title={habit.name} style={{ padding: '3px 6px', color: 'var(--ink-5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {habit.name}
-                    {habit.id === STORY_ID && <span style={{ marginLeft: 4, fontSize: 9, opacity: 0.4 }}>🔒</span>}
+                    {habit.id === STORY_ID && <span style={{ marginLeft: 4, fontSize: 'var(--text-xs)', opacity: 0.4 }}>🔒</span>}
                   </td>
                   {days.map(d => {
                     const level = getCellLevel(habit, d)
@@ -778,7 +812,7 @@ function MonthView({
                           onClick={() => handleCellClick(habit, d)}
                           style={{
                             display: 'block', width: '100%', aspectRatio: '1',
-                            borderRadius: 3,
+                            borderRadius: 6,
                             border: `1px solid ${bg ? 'transparent' : 'oklch(1 0 0 / 0.06)'}`,
                             background: bg || 'oklch(1 0 0 / 0.03)',
                             cursor: isSpecial ? 'default' : 'pointer',
@@ -800,11 +834,11 @@ function MonthView({
           const score = habitMonthScore(logs, habit.id, habit.levels, year, month, monthStoryPoints)
           return (
             <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-              <span title={habit.name} style={{ width: 100, fontSize: 10, color: 'var(--ink-4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{habit.name}</span>
+              <span title={habit.name} style={{ width: 100, fontSize: 'var(--text-xs)', color: 'var(--ink-4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{habit.name}</span>
               <div style={{ flex: 1, height: 4, background: 'var(--ink-1)', borderRadius: 2, overflow: 'hidden' }}>
                 <div style={{ height: '100%', borderRadius: 2, background: monthColor, width: `${score * 10}%`, opacity: 0.6 + score * 0.04 }} />
               </div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-4)', width: 28, textAlign: 'right' }}>{score.toFixed(1)}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--ink-4)', width: 28, textAlign: 'right' }}>{score.toFixed(1)}</span>
             </div>
           )
         })}
@@ -858,7 +892,7 @@ function HabitModal({
 
         <div style={{ padding: '16px 20px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', color: 'var(--ink-4)', textTransform: 'uppercase' }}>{initial ? 'Edit Habit' : 'New Habit'}</span>
+            <span className="panel-title">{initial ? 'Edit habit' : 'New habit'}</span>
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', padding: 2 }}>
               <X size={14} />
             </button>
@@ -866,31 +900,32 @@ function HabitModal({
 
           {/* Name */}
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Name</label>
+            <label htmlFor="habit-name" style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--ink-4)', marginBottom: 6 }}>Name</label>
             <input
+              id="habit-name"
               autoFocus
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && canSubmit && onSave(name.trim(), levels.map(l => ({ ...l, label: l.label.trim() })))}
               placeholder="e.g. Exercise, Reading, Water"
               style={{
-                width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)',
+                width: '100%', padding: '9px 11px', borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--glass-border)', background: 'var(--ink-0)',
-                color: 'var(--ink-6)', fontSize: 12, outline: 'none',
+                color: 'var(--ink-6)', fontSize: 'var(--text-base)', outline: 'none',
               }}
             />
           </div>
 
           {/* Levels */}
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+            <span style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--ink-4)', marginBottom: 6 }}>
               Levels ({levels.length}/5)
-            </label>
+            </span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {levels.map((lv, i) => (
                 <div key={lv.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{
-                    width: 20, height: 20, borderRadius: 3, flexShrink: 0,
+                    width: 20, height: 20, borderRadius: 6, flexShrink: 0,
                     background: getLevelColor(monthColor, i + 1, levels.length) || 'var(--ink-2)',
                     border: '1px solid var(--glass-border)',
                   }} />
@@ -899,9 +934,9 @@ function HabitModal({
                     onChange={e => updateLevel(lv.id, e.target.value)}
                     placeholder={PLACEHOLDERS[i]}
                     style={{
-                      flex: 1, padding: '6px 8px', borderRadius: 6,
+                      flex: 1, padding: '6px 8px', borderRadius: 'var(--radius-xs)',
                       border: '1px solid var(--glass-border)', background: 'var(--ink-0)',
-                      color: 'var(--ink-6)', fontSize: 11, outline: 'none',
+                      color: 'var(--ink-6)', fontSize: 'var(--text-sm)', outline: 'none',
                     }}
                   />
                   {levels.length > 1 && (
@@ -914,7 +949,7 @@ function HabitModal({
             </div>
             {levels.length < 5 && (
               <button onClick={addLevel} style={{
-                marginTop: 6, fontSize: 10, color: monthColor,
+                marginTop: 6, fontSize: 'var(--text-xs)', color: monthColor,
                 background: 'none', border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 4,
               }}>
@@ -928,7 +963,7 @@ function HabitModal({
             <button onClick={onClose} style={{
               flex: 1, padding: '8px', borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--glass-border)', background: 'transparent',
-              color: 'var(--ink-4)', fontSize: 12, cursor: 'pointer',
+              color: 'var(--ink-4)', fontSize: 'var(--text-base)', cursor: 'pointer',
             }}>Cancel</button>
             <button
               onClick={() => canSubmit && onSave(name.trim(), levels.map(l => ({ ...l, label: l.label.trim() })))}
@@ -936,7 +971,7 @@ function HabitModal({
               style={{
                 flex: 1, padding: '8px', borderRadius: 'var(--radius-sm)',
                 border: 'none', background: canSubmit ? monthColor : 'var(--ink-2)',
-                color: canSubmit ? '#fff' : 'var(--ink-3)', fontSize: 12,
+                color: canSubmit ? '#fff' : 'var(--ink-3)', fontSize: 'var(--text-base)',
                 cursor: canSubmit ? 'pointer' : 'not-allowed', fontWeight: 500,
               }}
             >{initial ? 'Save' : 'Add'}</button>

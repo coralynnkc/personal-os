@@ -44,8 +44,8 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 280 }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 8 }}>
-        PERSONAL OS
+      <div style={{ fontSize: 'var(--text-lg)', fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink-6)', marginBottom: 10 }}>
+        Personal OS
       </div>
       <input
         autoFocus
@@ -62,7 +62,7 @@ function LoginForm() {
           outline: 'none',
         }}
       />
-      {error && <div style={{ fontSize: 11, color: 'var(--danger)' }}>{error}</div>}
+      {error && <div style={{ fontSize: 'var(--text-sm)', color: 'var(--danger)' }}>{error}</div>}
       <button
         type="submit"
         disabled={loading}
@@ -86,7 +86,9 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    // The rail is 54px and sticky above this, so centring against the full
+    // viewport pushed the form that far below the optical centre.
+    <div style={{ minHeight: 'calc(100vh - 54px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <Suspense>
         <LoginForm />
       </Suspense>

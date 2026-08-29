@@ -1,31 +1,64 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Tokens.
+
+   The palette is warm-neutral rather than the cold blue it started as, and
+   the ground sits at L=0.17 instead of L=0.12 — a near-black page under
+   near-white text is the single harshest thing a dark UI can do, and this is
+   a dashboard that wants to be opened voluntarily. Chroma is low everywhere
+   and the status hues are desaturated: `danger` is coral, not alarm red,
+   because a due-today chip appears on most rows and should read as a nudge.
+
+   Caveat that shapes this file: Tailwind's pipeline drops :root custom
+   properties that no CSS rule references. Every token below is used by a
+   real rule further down (or by the utility layer), which is what keeps it
+   alive — a token added here and only ever read from an inline style object
+   will silently resolve to nothing.
+   ───────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --ink-0: oklch(0.12 0.01 250);
-  --ink-1: oklch(0.18 0.015 250);
-  --ink-2: oklch(0.25 0.015 250);
-  --ink-3: oklch(0.40 0.01 250);
-  --ink-4: oklch(0.60 0.008 250);
-  --ink-5: oklch(0.75 0.006 250);
-  --ink-6: oklch(0.92 0.003 250);
+  --ink-0: oklch(0.17 0.008 280);
+  --ink-1: oklch(0.213 0.009 280);
+  --ink-2: oklch(0.262 0.010 280);
+  --ink-3: oklch(0.48 0.010 280);
+  --ink-4: oklch(0.655 0.008 280);
+  --ink-5: oklch(0.80 0.006 280);
+  --ink-6: oklch(0.94 0.004 280);
 
-  --accent:        oklch(0.72 0.18 260);
-  --accent-dim:    oklch(0.72 0.18 260 / 0.15);
-  --accent-border: oklch(0.72 0.18 260 / 0.35);
+  --accent:        oklch(0.79 0.105 268);
+  --accent-dim:    oklch(0.79 0.105 268 / 0.14);
+  --accent-border: oklch(0.79 0.105 268 / 0.28);
 
-  --ok:       oklch(0.70 0.16 142);
-  --ok-dim:   oklch(0.70 0.16 142 / 0.15);
-  --warn:     oklch(0.78 0.17 70);
-  --warn-dim: oklch(0.78 0.17 70 / 0.15);
-  --danger:   oklch(0.65 0.20 25);
+  --ok:       oklch(0.78 0.105 155);
+  --ok-dim:   oklch(0.78 0.105 155 / 0.14);
+  --warn:     oklch(0.845 0.105 80);
+  --warn-dim: oklch(0.845 0.105 80 / 0.14);
+  --danger:     oklch(0.755 0.125 24);
+  --danger-dim: oklch(0.755 0.125 24 / 0.14);
 
-  --glass:        oklch(0.18 0.012 250 / 0.7);
-  --glass-border: oklch(1 0 0 / 0.07);
+  --glass:        oklch(0.213 0.009 280 / 0.72);
+  --glass-border: oklch(1 0 0 / 0.055);
 
-  --radius:    12px;
-  --radius-sm: 8px;
+  --radius:    14px;
+  --radius-sm: 10px;
+  --radius-xs: 7px;
 
-  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  /* Figtree has rounded terminals and a tall x-height, so it stays warm at
+     11px where a grotesk turns brittle. Mono is reserved for things that
+     genuinely align in a column — clock times, durations, counts. */
+  --font-sans: var(--font-figtree), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: var(--font-dm-mono), 'SF Mono', 'Fira Code', monospace;
+
+  /* Type scale. The floor is 11px; anything smaller was unreadable and read
+     as clutter rather than as detail. Body copy is 13.5px. */
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 13.5px;
+  --text-md:   15px;
+  --text-lg:   17px;
+
+  --ease: cubic-bezier(0.32, 0.72, 0.28, 1);
 
   /* The design is dark-only; tell the browser so native selects, scrollbars
      and date pickers stop rendering light against it. */
@@ -34,13 +67,127 @@
 
 * { box-sizing: border-box; }
 
+/* Nothing may scroll the page sideways.
+
+   The usual culprit is not a too-wide element but `min-width: auto`, which is
+   the default for grid and flex items: a track refuses to shrink below its
+   content, so one long task title or company name widens the whole page. Wide
+   content is allowed — it just has to scroll inside its own container
+   (`overflow-x: auto`), the way the kanban, the pipeline board and the month
+   grid already do. */
+html, body { max-width: 100%; overflow-x: clip; }
+main { min-width: 0; }
+
 body {
   background: var(--ink-0);
   color: var(--ink-6);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 13px;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  letter-spacing: 0.004em;
   min-height: 100vh;
 }
+
+/* ─── Surfaces ──────────────────────────────────────────────────────────── */
+
+.card {
+  min-width: 0;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+
+/* A card that holds one item rather than a list of them: the task and job
+   cards, which used to carry a full border each. At thirty-odd on screen the
+   borders were most of the noise, so these are a fill with no outline. */
+.tile {
+  min-width: 0;
+  background: var(--ink-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: background 0.16s var(--ease), border-color 0.16s var(--ease);
+}
+
+/* ─── Interaction ───────────────────────────────────────────────────────────
+   Hover used to be hand-rolled with onMouseEnter/onMouseLeave, which never
+   fires on touch and left most controls visually inert. These are real
+   pseudo-classes, so :active covers touch and hover is gated behind a device
+   that actually has a pointer. */
+
+.tap {
+  transition: background 0.16s var(--ease), color 0.16s var(--ease),
+              border-color 0.16s var(--ease), opacity 0.16s var(--ease);
+}
+
+@media (hover: hover) {
+  .tile:hover { background: var(--ink-2); border-color: var(--glass-border); }
+  .tap:hover  { background: var(--ink-2); color: var(--ink-6); }
+  .tap-quiet:hover { opacity: 1; }
+}
+
+.tile:active { background: var(--ink-2); }
+.tap:active  { background: var(--ink-2); color: var(--ink-6); transform: scale(0.97); }
+
+/* Icon-only controls that sit at rest until you reach for them. */
+.tap-quiet { opacity: 0.55; transition: opacity 0.16s var(--ease); }
+.tap-quiet:active { opacity: 1; }
+
+/* ─── Text roles ────────────────────────────────────────────────────────── */
+
+/* Panel and column headings. These were 9–10px uppercase mono at 0.14em —
+   the loudest thing on every screen, for text that only says which box you
+   are looking at. Sentence case at a readable size steps them back down. */
+.panel-title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--ink-6);
+}
+
+.section-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ink-5);
+}
+
+/* A count or unit sitting beside a title — quiet, and aligned because it is
+   a number. */
+.meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Chips ─────────────────────────────────────────────────────────────────
+   Every chip used to be an outlined box. A row carrying a points chip, a date
+   chip and two tag chips was five nested rectangles including the card and
+   the checkbox. Fill-only, no border, and the shape still reads. */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.45;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Numbers stay mono so a column of them lines up. */
+.chip-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Motion ────────────────────────────────────────────────────────────── */
 
 /* Pomodoro phase dot — a running clock pulses, a paused one holds steady. */
 @keyframes pomodoro-pulse {
@@ -70,4 +217,5 @@ body {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
   }
+  .tap:active { transform: none; }
 }

@@ -40,8 +40,7 @@ export default function DocClient({ slug }: { slug: string }) {
   const back = (
     <Link href="/week" style={{
       display: 'inline-flex', alignItems: 'center', gap: 6,
-      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em',
-      textTransform: 'uppercase', color: 'var(--ink-4)', textDecoration: 'none',
+      fontSize: 'var(--text-base)', color: 'var(--ink-4)', textDecoration: 'none',
     }}>
       <ArrowLeft size={12} aria-hidden /> This week
     </Link>
@@ -63,7 +62,7 @@ export default function DocClient({ slug }: { slug: string }) {
           {doc.source_path && (
             // Not uppercased like the other mono labels — a path is
             // case-sensitive and shouting it makes it wrong.
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.04em', color: 'var(--ink-4)', marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', letterSpacing: '0.04em', color: 'var(--ink-4)', marginBottom: 14 }}>
               {doc.source_path}
             </div>
           )}
