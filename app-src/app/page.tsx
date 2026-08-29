@@ -5,18 +5,11 @@ import Calendar from '@/components/Calendar'
 export default function Home() {
   return (
     <div style={{ padding: '16px 20px', width: '100%' }}>
-      {/* Two columns since the job-search card moved to its own /jobs tab.
-          The tracker is capped at 600px so it doesn't stretch across a wide
-          screen; the task column takes all remaining width so titles aren't
-          clipped and the grid still fills the viewport. */}
-      <div className="grid gap-3 items-start grid-cols-1 md:grid-cols-[minmax(320px,1fr)_minmax(0,600px)]">
-        {/* Left column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <TodayTasks />
-          <Calendar />
-        </div>
-
-        {/* Right column — Habit Tracker */}
+      {/* Three columns on wide screens; the tracker gets the widest share so
+          the month grid's 31 day-columns stay legible. Stacks below lg. */}
+      <div className="grid gap-3 items-start grid-cols-1 lg:grid-cols-[minmax(260px,1fr)_minmax(260px,1fr)_minmax(560px,1.8fr)]">
+        <TodayTasks />
+        <Calendar />
         <HabitTracker />
       </div>
     </div>
