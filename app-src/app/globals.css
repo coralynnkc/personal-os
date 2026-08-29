@@ -67,6 +67,17 @@
 
 * { box-sizing: border-box; }
 
+/* Nothing may scroll the page sideways.
+
+   The usual culprit is not a too-wide element but `min-width: auto`, which is
+   the default for grid and flex items: a track refuses to shrink below its
+   content, so one long task title or company name widens the whole page. Wide
+   content is allowed — it just has to scroll inside its own container
+   (`overflow-x: auto`), the way the kanban, the pipeline board and the month
+   grid already do. */
+html, body { max-width: 100%; overflow-x: clip; }
+main { min-width: 0; }
+
 body {
   background: var(--ink-0);
   color: var(--ink-6);
@@ -80,6 +91,7 @@ body {
 /* ─── Surfaces ──────────────────────────────────────────────────────────── */
 
 .card {
+  min-width: 0;
   background: var(--glass);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
@@ -91,6 +103,7 @@ body {
    cards, which used to carry a full border each. At thirty-odd on screen the
    borders were most of the noise, so these are a fill with no outline. */
 .tile {
+  min-width: 0;
   background: var(--ink-1);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);

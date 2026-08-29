@@ -1211,8 +1211,9 @@ function TasksInner() {
         </div>
       )}
 
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      {/* Header row. Wraps: the view switcher, sort, Projects and New come to
+          573px laid out in one line, which is wider than a phone. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{
           display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 999, padding: 3,
         }}>
