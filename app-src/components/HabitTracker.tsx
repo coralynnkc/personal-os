@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Plus, ChevronLeft, ChevronRight, X, Trash2 } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, X, Trash2, Sun, Moon, Lock } from 'lucide-react'
 import { habitDateKey, USER_TZ } from '@/lib/dateKey'
 import { ErrorRow } from './jobs/ui'
 
@@ -48,6 +48,15 @@ const STORY_LEVELS: Level[] = [
   { id: 'sp3', label: '7–10 pts' },
   { id: 'sp4', label: '≥ 11 pts' },
 ]
+
+// The month strip and the averages under it are the same list read twice, so
+// they hang off one label column.
+const LABEL_W = 92
+
+// The edit/delete pair keeps its width even while it is invisible, so a row
+// with no actions has to reserve the same gutter — otherwise its levels run
+// to the edge and every user habit's stop short of it.
+const ACTIONS_W = 46
 
 const MONTH_NAMES = [
   'January','February','March','April','May','June',
@@ -441,8 +450,9 @@ export default function HabitTracker() {
 
       {error && <ErrorRow message={error} onRetry={retry} />}
 
-      {/* The one filled surface in the app. */}
-      <div style={{ background: 'var(--tint)', padding: 'var(--s4)', overflowY: 'auto', minWidth: 0 }}>
+      {/* No panel: habits are rows on the page ground, like the log beside
+          them. The only chrome is the hairline under each row. */}
+      <div style={{ overflowY: 'auto', minWidth: 0 }}>
         {view === 'today'
           ? <TodayView
               habits={habits}
@@ -526,8 +536,6 @@ function TodayView({
   onEdit: (habit: HabitDef) => void
   onDelete: (id: string) => void
 }) {
-  const [hoveredHabit, setHoveredHabit] = useState<string | null>(null)
-
   if (habits.length === 0 && allHabits.length === 2) {
     return (
       <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -536,14 +544,22 @@ function TodayView({
     )
   }
 
-  // A level is a word in a box the width of the word — no fill until it is
-  // the one chosen, and then it carries the same lavender the grid does.
-  // These are words, so they stay in Jost rather than the number face.
+  // A level is a word in a box the width of the word — an empty box until it
+  // is the one chosen, and then it fills with the same lavender the grid
+  // does. These are words, so they stay in Jost rather than the number face.
   const habitBtnBase: React.CSSProperties = {
-    fontSize: 'var(--text-sm)', padding: '2px var(--s2)', borderRadius: 0,
+    fontSize: 'var(--text-sm)', padding: '3px var(--s2)', borderRadius: 0,
     border: '1px solid var(--rule)', background: 'transparent',
     color: 'var(--slate)', cursor: 'pointer', whiteSpace: 'nowrap',
+    lineHeight: 1.3,
   }
+
+  const levelStyle = (active: boolean): React.CSSProperties => ({
+    ...habitBtnBase,
+    background: active ? 'var(--lavender)' : 'transparent',
+    color: active ? 'var(--ground)' : 'var(--slate)',
+    borderColor: active ? 'var(--lavender)' : 'var(--rule)',
+  })
 
   return (
     <div>
@@ -567,24 +583,25 @@ function TodayView({
                   {hours.toFixed(1)}h
                 </span>
               )}
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => onSleep('waketime')} className="tap" style={{
-                  ...habitBtnBase,
-                  background: hasWaketime ? 'var(--lavender)' : 'transparent',
-                  color: hasWaketime ? 'var(--ground)' : 'var(--slate)',
-                  borderColor: hasWaketime ? 'var(--lavender)' : 'var(--rule)',
-                }}>
-                  ☀️ {hasWaketime ? formatTime(sleepLog!.waketime!) : 'Wake'}
+              <div style={{ display: 'flex', gap: 5 }}>
+                <button
+                  onClick={() => onSleep('waketime')}
+                  className="tap"
+                  style={{ ...levelStyle(hasWaketime), display: 'flex', alignItems: 'center', gap: 5 }}
+                >
+                  <Sun size={10} strokeWidth={1.5} />
+                  {hasWaketime ? formatTime(sleepLog!.waketime!) : 'wake'}
                 </button>
-                <button onClick={() => onSleep('bedtime')} className="tap" style={{
-                  ...habitBtnBase,
-                  background: hasBedtime ? 'var(--lavender)' : 'transparent',
-                  color: hasBedtime ? 'var(--ground)' : 'var(--slate)',
-                  borderColor: hasBedtime ? 'var(--lavender)' : 'var(--rule)',
-                }}>
-                  🌙 {hasBedtime ? formatTime(sleepLog!.bedtime!) : 'Bedtime'}
+                <button
+                  onClick={() => onSleep('bedtime')}
+                  className="tap"
+                  style={{ ...levelStyle(hasBedtime), display: 'flex', alignItems: 'center', gap: 5 }}
+                >
+                  <Moon size={10} strokeWidth={1.5} />
+                  {hasBedtime ? formatTime(sleepLog!.bedtime!) : 'bed'}
                 </button>
               </div>
+              <span aria-hidden style={{ width: ACTIONS_W, flexShrink: 0 }} />
             </div>
           )
         }
@@ -600,24 +617,22 @@ function TodayView({
                 {done && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--lavender)' }}>✓</span>}
                 Story Points
               </span>
-              <div style={{ display: 'flex', gap: 4 }}>
+              <div style={{ display: 'flex', gap: 5 }}>
                 {STORY_LEVELS.map((lv, i) => {
-                  const lvl = i + 1
-                  const active = level === lvl
+                  const active = level === i + 1
                   return (
                     <span key={lv.id} style={{
-                      ...habitBtnBase,
+                      ...levelStyle(active),
                       display: 'inline-block',
-                      background: active ? 'var(--lavender)' : 'transparent',
-                      color: active ? 'var(--ground)' : 'var(--slate)',
-                      borderColor: active ? 'var(--lavender)' : 'var(--rule)',
-                      opacity: active ? 1 : 0.6,
+                      cursor: 'default',
+                      opacity: active ? 1 : 0.55,
                     }}>
                       {lv.label}
                     </span>
                   )
                 })}
               </div>
+              <span aria-hidden style={{ width: ACTIONS_W, flexShrink: 0 }} />
             </div>
           )
         }
@@ -627,17 +642,12 @@ function TodayView({
         const done = currentLevel > 0
 
         return (
-          <div
-            key={habit.id}
-            className="hrow"
-            onMouseEnter={() => setHoveredHabit(habit.id)}
-            onMouseLeave={() => setHoveredHabit(null)}
-          >
+          <div key={habit.id} className="hrow row-hover">
             <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-base)', color: done ? 'var(--ivory)' : 'var(--ash)', display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
               {done && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--lavender)' }}>✓</span>}
               {habit.name}
             </span>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               {habit.levels.map((lv, i) => {
                 const lvl = i + 1
                 const active = currentLevel === lvl
@@ -646,19 +656,16 @@ function TodayView({
                     key={lv.id}
                     onClick={() => onLog(habit.id, today, active ? 0 : lvl)}
                     className="tap"
-                    style={{
-                      ...habitBtnBase,
-                      background: active ? 'var(--lavender)' : 'transparent',
-                      color: active ? 'var(--ground)' : 'var(--slate)',
-                      borderColor: active ? 'var(--lavender)' : 'var(--rule)',
-                    }}
+                    style={levelStyle(active)}
                   >
                     {lv.label}
                   </button>
                 )
               })}
             </div>
-            <div style={{ display: 'flex', gap: 2, opacity: hoveredHabit === habit.id ? 1 : 0, transition: 'opacity 0.15s', flexShrink: 0 }}>
+            {/* `.ghost-action` over hand-rolled hover state: the JS version
+                never fired on touch, where these were permanently invisible. */}
+            <div className="ghost-action" style={{ display: 'flex', gap: 2, width: ACTIONS_W, justifyContent: 'flex-end', flexShrink: 0 }}>
               <button
                 onClick={() => onEdit(habit)}
                 className="tap"
@@ -714,11 +721,19 @@ function MonthView({
 }) {
   const daysInMonth = getDaysInMonth(year, month)
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
-  const today = localDateKey()
   const todayDay =
     new Date().getFullYear() === year && new Date().getMonth() === month
       ? new Date().getDate()
       : null
+
+  // Every fifth day carries a number, and today always does — with any
+  // neighbour of today's dropped so two labels never collide.
+  const labelDays = new Set<number>()
+  for (let d = 1; d <= daysInMonth; d += 5) labelDays.add(d)
+  if (todayDay) {
+    for (const d of [...labelDays]) if (Math.abs(d - todayDay) <= 1) labelDays.delete(d)
+    labelDays.add(todayDay)
+  }
 
   function handleCellClick(habit: HabitDef, day: number) {
     if (habit.id === STORY_ID) return // read-only
@@ -743,38 +758,48 @@ function MonthView({
 
   return (
     <div>
-      {/* Month nav */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <button onClick={() => onShift(-1)} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', padding: '4px 6px' }}>
-          <ChevronLeft size={14} />
-        </button>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-base)', color: 'var(--ivory)' }}>{MONTH_NAMES[month]}</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--ink-4)' }}>{year}</div>
-        </div>
-        <button onClick={() => onShift(1)} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', padding: '4px 6px' }}>
-          <ChevronRight size={14} />
-        </button>
+      {/* Month nav — one line, the way a journal writes a date. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--s2)', marginBottom: 'var(--s3)' }}>
+        <span style={{ fontSize: 'var(--text-base)', color: 'var(--ivory)' }}>{MONTH_NAMES[month]}</span>
+        <span className="mono" style={{ fontSize: 'var(--text-xs)', color: 'var(--slate)' }}>{year}</span>
+        <span style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--s1)' }}>
+          <button onClick={() => onShift(-1)} className="tap" aria-label="Previous month"
+            style={{ background: 'none', border: 0, color: 'var(--slate)', cursor: 'pointer', padding: '2px 4px', lineHeight: 0 }}>
+            <ChevronLeft size={13} />
+          </button>
+          <button onClick={() => onShift(1)} className="tap" aria-label="Next month"
+            style={{ background: 'none', border: 0, color: 'var(--slate)', cursor: 'pointer', padding: '2px 4px', lineHeight: 0 }}>
+            <ChevronRight size={13} />
+          </button>
+        </span>
       </div>
 
-      {/* Grid */}
+      {/* A grid of cells, one per day. What was wrong with it was never the
+          boxes — it was thirty-one two-digit numbers fighting over a 330px
+          column, which shrank the cells to nothing to make room. The ruler is
+          marked every fifth day now, so the cells get the width back. */}
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse', fontSize: 'var(--text-xs)', width: '100%', tableLayout: 'fixed' }}>
+        <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 240, tableLayout: 'fixed' }}>
           <colgroup>
-            <col style={{ width: 110 }} />
+            <col style={{ width: LABEL_W }} />
             {days.map(d => <col key={d} />)}
           </colgroup>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--ink-3)', fontWeight: 400, borderBottom: '1px solid var(--glass-border)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>habit</th>
+              <th style={{ padding: '0 var(--s2) 5px 0', borderBottom: '1px solid var(--rule)' }} />
               {days.map(d => (
-                <th key={d} style={{
-                  paddingBottom: 4, paddingTop: 4, textAlign: 'center',
-                  borderBottom: '1px solid var(--glass-border)',
-                  color: d === todayDay ? 'var(--lavender)' : 'var(--slate)',
-                  fontWeight: 400,
-                  fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)',
-                }}>{d}</th>
+                // The champagne number is the whole of today's marker —
+                // a column of outlined cells under it only added boxes.
+                <th key={d} className="mono" style={{
+                  padding: '0 0 5px', textAlign: 'center', fontWeight: 400,
+                  fontSize: 9.5, letterSpacing: 0,
+                  borderBottom: '1px solid var(--rule)',
+                  color: d === todayDay ? 'var(--champagne)' : 'var(--slate)',
+                }}>
+                  <span style={{ display: 'block', whiteSpace: 'nowrap' }}>
+                    {labelDays.has(d) ? d : '\u00A0'}
+                  </span>
+                </th>
               ))}
             </tr>
           </thead>
@@ -784,9 +809,18 @@ function MonthView({
 
               return (
                 <tr key={habit.id}>
-                  <td title={habit.name} style={{ padding: '3px 6px', color: 'var(--ink-5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {habit.name}
-                    {habit.id === STORY_ID && <span style={{ marginLeft: 4, fontSize: 'var(--text-xs)', opacity: 0.4 }}>🔒</span>}
+                  <td title={habit.name} style={{ padding: '0 var(--s2) 0 0' }}>
+                    <span style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      fontSize: 'var(--text-sm)', lineHeight: 1.1, color: 'var(--ash)',
+                    }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {habit.name}
+                      </span>
+                      {habit.id === STORY_ID && (
+                        <Lock size={8} strokeWidth={1.5} style={{ flexShrink: 0, color: 'var(--slate)' }} />
+                      )}
+                    </span>
                   </td>
                   {days.map(d => {
                     const level = getCellLevel(habit, d)
@@ -795,12 +829,16 @@ function MonthView({
                       <td key={d} style={{ padding: '2px 1px' }}>
                         <button
                           onClick={() => handleCellClick(habit, d)}
+                          title={`${habit.name} — ${MONTH_NAMES[month]} ${d}`}
+                          aria-label={`${habit.name}, ${MONTH_NAMES[month]} ${d}`}
                           style={{
-                            display: 'block', width: '100%', aspectRatio: '1',
+                            // Height rather than aspect-ratio: a square would
+                            // be as small as the narrowest column allows, and
+                            // an empty row of them is the thing that looked
+                            // squished. This keeps a legible cell either way.
+                            display: 'block', width: '100%', height: 12, padding: 0,
                             borderRadius: 0, border: 0,
                             background: bg || 'var(--tint-2)',
-                            outline: d === todayDay ? '1px solid var(--slate)' : undefined,
-                            outlineOffset: 1,
                             cursor: isSpecial ? 'default' : 'pointer',
                           }}
                         />
@@ -815,16 +853,16 @@ function MonthView({
       </div>
 
       {/* Monthly averages bars */}
-      <div style={{ marginTop: 14, borderTop: '1px solid var(--glass-border)', paddingTop: 10 }}>
+      <div style={{ marginTop: 'var(--s5)', borderTop: '1px solid var(--rule)', paddingTop: 'var(--s3)' }}>
         {allHabits.map(habit => {
           const score = habitMonthScore(logs, habit.id, habit.levels, year, month, monthStoryPoints)
           return (
-            <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-              <span title={habit.name} style={{ width: 100, fontSize: 'var(--text-xs)', color: 'var(--ink-4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{habit.name}</span>
-              <div style={{ flex: 1, height: 2, background: 'var(--tint-2)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', background: 'var(--lavender)', width: `${score * 10}%`, opacity: 0.5 + score * 0.05 }} />
+            <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', padding: '3px 0' }}>
+              <span title={habit.name} style={{ width: LABEL_W, fontSize: 'var(--text-sm)', color: 'var(--ash)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{habit.name}</span>
+              <div style={{ flex: 1, height: 2, background: 'var(--tint-2)' }}>
+                <div style={{ height: '100%', background: 'var(--lavender)', width: `${score * 10}%`, opacity: 0.45 + score * 0.055 }} />
               </div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--ink-4)', width: 28, textAlign: 'right' }}>{score.toFixed(1)}</span>
+              <span className="mono" style={{ fontSize: 'var(--text-xs)', color: 'var(--slate)', width: 26, textAlign: 'right' }}>{score.toFixed(1)}</span>
             </div>
           )
         })}

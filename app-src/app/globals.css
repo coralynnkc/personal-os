@@ -5,7 +5,8 @@
    this is built from; its style guide is the comment block at its top.
 
    COLOUR   ground    #121019  night black, the page
-            tint      #1A1724  the one filled surface (habits)
+            tint      #1A1724  a room laid over the page — modal, tooltip,
+                               the ground a hovered row moves onto
             ivory     #F2EDE4  primary text
             ash       #A79E92  secondary
             slate     #6E675E  quiet meta, contrast floor
@@ -220,7 +221,10 @@ main { min-width: 0; }
 
 /* ── the three dashboard regions ───────────────────────────────────────────
    Each keeps its own treatment: the log is plain rows on the page ground, the
-   calendar hangs off a vertical time rail, habits are the one filled surface.
+   calendar hangs off a vertical time rail, habits are rows whose right margin
+   carries the levels as boxes — the one place a box means something, since a
+   level is a choice among a fixed few and the month grid is made of the same
+   cell. The region itself is not a panel: it sits on the page ground.
    The vertical hairlines only make sense while the three sit side by side, so
    they become horizontal ones once the grid stacks (below the `lg` at which
    app/page.tsx drops to a single column). */
@@ -318,7 +322,7 @@ main { min-width: 0; }
   font-variant-numeric: tabular-nums;
 }
 
-/* A habit row inside the filled surface. */
+/* A habit row. Same anatomy as a log row: text, a mark, a hairline. */
 .hrow {
   display: flex;
   align-items: center;
