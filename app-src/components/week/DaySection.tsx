@@ -4,19 +4,23 @@ import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import Markdown, { inline } from '@/lib/markdown'
 import {
-  clock, committedMinutes, dayKey, dayTitle, entityCode, longHours, matchTask, meridiem,
-  overlaps, rowEntity, rowTitle,
-  type DayStatus, type Entity, type MatchableTask, type WeekDay, type WeekRow,
+  chosenArm, clock, committedMinutes, dayKey, dayTitle, entityCode, longHours, matchTask,
+  meridiem, overlaps, rowEntity, rowTitle, rowWhat,
+  type ArmId, type DayState, type DayStatus, type Entity, type MatchableTask, type WeekDay,
+  type WeekRow,
 } from '@/lib/weekDoc'
 import StartFocusButton from '../pomodoro/StartFocusButton'
 import { cardStyle, Empty, RegionHead } from '../jobs/ui'
 
+type Choose = (row: WeekRow, arm: ArmId | null) => void
+
 function Schedule({
-  day, checked, onToggle, tasks, vocabulary,
+  day, state, onToggle, onChoose, tasks, vocabulary,
 }: {
   day: WeekDay
-  checked: Set<string>
+  state: DayState
   onToggle: ((row: WeekRow, next: boolean) => void) | null
+  onChoose: Choose | null
   tasks: MatchableTask[]
   vocabulary: Entity[]
 }) {
@@ -25,6 +29,8 @@ function Schedule({
   return (
     <div className="sched">
       {day.rows.map((row) => {
+        // Which way this row's fork went, if it has one and the week answered.
+        const choice = state.branches[row.id]
         // A collision inside the day is the thing the flat table states as a
         // footnote and never shows — two 🔵 meetings sitting inside a class.
         const clash = day.rows.some((other) => other.id !== row.id && overlaps(row, other))
@@ -32,7 +38,7 @@ function Schedule({
         // sits on never disqualifies a task — which is why the bar to clear is
         // higher here than it is for a deadline (see `matchTask`).
         const task = date
-          ? matchTask({ title: rowTitle(row), date }, tasks, {
+          ? matchTask({ title: rowTitle(row, choice), date }, tasks, {
               requireDate: false, threshold: 0.8, minTokens: 2,
             })
           : null
@@ -41,10 +47,12 @@ function Schedule({
             key={row.id}
             row={row}
             clash={clash}
-            done={checked.has(row.id)}
+            done={state.checked.includes(row.id)}
+            choice={choice}
             onToggle={onToggle}
+            onChoose={onChoose}
             task={task}
-            entity={rowEntity(row, vocabulary)}
+            entity={rowEntity(row, vocabulary, choice)}
           />
         )
       })}
@@ -52,13 +60,48 @@ function Schedule({
   )
 }
 
+/**
+ * A row that states two futures, before the week has picked one.
+ *
+ * Rendered flat, "**HW 2 starts here** if Saturday cleared HW 1 — otherwise
+ * HW 1, due 8 AM tomorrow" states both and means neither: on Monday afternoon
+ * you have to re-derive Saturday to read your own schedule. So the condition
+ * leads, the two futures sit under it as the choice they are, and answering it
+ * once collapses the row to what it actually was.
+ */
+function Fork({ row, onChoose }: { row: WeekRow; onChoose: Choose }) {
+  const branch = row.branch!
+  return (
+    <div className="branch" role="group" aria-label={`If ${branch.condition}`}>
+      <div className="branch-if">if {branch.condition}</div>
+      {branch.arms.map((arm) => (
+        <button
+          key={arm.id}
+          type="button"
+          className="branch-arm tap"
+          onClick={() => onChoose(row, arm.id)}
+        >
+          <span className="branch-mark">{arm.id === 'if' ? 'then' : 'else'}</span>
+          <span>
+            {/* A missing `else` arm is not missing data — it is the answer
+                "this doesn't happen", and it has to be sayable. */}
+            {arm.what ? inline(arm.what, `${row.id}-${arm.id}`) : <em>it doesn’t happen</em>}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function Row({
-  row, clash, done, onToggle, task, entity,
+  row, clash, done, choice, onToggle, onChoose, task, entity,
 }: {
   row: WeekRow
   clash: boolean
   done: boolean
+  choice: string | undefined
   onToggle: ((row: WeekRow, next: boolean) => void) | null
+  onChoose: Choose | null
   task: MatchableTask | null
   entity: Entity | null
 }) {
@@ -67,8 +110,15 @@ function Row({
     : row.kind === 'duration' ? `${row.durationMin} min`
     : row.rawTime || '—'
 
+  const arm = chosenArm(row, choice)
+  // A day with nowhere to write can't hold an answer either, so an unanswerable
+  // fork renders as the sentence the file wrote — never as a dead control.
+  const open = Boolean(row.branch && !arm && onChoose)
+  const skipped = arm?.what === null
+  const what = rowWhat(row, choice)
+
   // The What cell is markdown; an aria-label reads the asterisks aloud.
-  const label = row.rawWhat.replace(/[*`]/g, '').trim() || 'this row'
+  const label = what.replace(/[*`]/g, '').trim() || 'this row'
 
   return (
     <>
@@ -96,13 +146,34 @@ function Row({
       <span
         className="sched-what"
         style={{
-          color: done ? 'var(--slate)' : row.anchor ? 'var(--ivory)' : 'var(--ash)',
-          textDecoration: done ? 'line-through' : undefined,
+          color: done || skipped ? 'var(--slate)' : row.anchor ? 'var(--ivory)' : 'var(--ash)',
           borderLeft: `1px solid ${row.meeting ? 'var(--champagne)' : 'transparent'}`,
           paddingLeft: row.meeting ? 'var(--s3)' : 0,
         }}
       >
-        {inline(row.rawWhat, row.id)}
+        {/* The rule through the text is on the text, not on the cell: a
+            decoration set on an ancestor paints straight through every
+            descendant, and the `change` link below is not struck out. */}
+        {open ? (
+          <Fork row={row} onChoose={onChoose!} />
+        ) : (
+          <span style={{ textDecoration: done || skipped ? 'line-through' : undefined }}>
+            {inline(what, row.id)}
+          </span>
+        )}
+        {/* An answered fork keeps its question in the margin: the condition is
+            why the row says what it says, and it is the thing you re-read when
+            the answer turns out to have been wrong. */}
+        {row.branch && arm && onChoose && (
+          <button
+            type="button"
+            className="branch-back tap"
+            onClick={() => onChoose(row, null)}
+            aria-label={`Reopen: if ${row.branch.condition}`}
+          >
+            if {row.branch.condition} · change
+          </button>
+        )}
       </span>
       {/* The right slot, in priority order: a collision is the only thing here
           that is *wrong*, so it outranks everything; then the fact that a real
@@ -110,7 +181,9 @@ function Row({
           for. Only one of the three ever shows — three tags on a schedule line
           is a legend, not a schedule. */}
       <span className="sched-rt">
-        {clash ? (
+        {/* A row the week decided against isn't an hour any more, so it claims
+            nothing here — least of all a ▶ that would start a timer on it. */}
+        {skipped ? null : clash ? (
           <span style={{ color: 'var(--coral)' }}>overlaps</span>
         ) : task ? (
           <>
@@ -137,12 +210,13 @@ function Row({
  * spends the whole column on it.
  */
 export default function DaySection({
-  day, status, checked, onToggle, tasks, vocabulary,
+  day, status, state, onToggle, onChoose, tasks, vocabulary,
 }: {
   day: WeekDay
   status: DayStatus
-  checked: Set<string>
+  state: DayState
   onToggle: ((row: WeekRow, next: boolean) => void) | null
+  onChoose: Choose | null
   tasks: MatchableTask[]
   vocabulary: Entity[]
 }) {
@@ -165,7 +239,12 @@ export default function DaySection({
       )}
 
       {day.rows.length > 0
-        ? <Schedule day={day} checked={checked} onToggle={onToggle} tasks={tasks} vocabulary={vocabulary} />
+        ? (
+          <Schedule
+            day={day} state={state} onToggle={onToggle} onChoose={onChoose}
+            tasks={tasks} vocabulary={vocabulary}
+          />
+        )
         : <Empty>Nothing scheduled.</Empty>}
 
       {day.prose && (

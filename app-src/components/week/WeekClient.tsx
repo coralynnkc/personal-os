@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Markdown from '@/lib/markdown'
 import { localToday } from '@/lib/taskDisplay'
 import {
-  carriedOver, committedMinutes, dayChipParts, dayKey, dayStatus, entityVocabulary,
-  formatHours, weekDates,
-  type Entity, type MatchableTask, type PlanningDoc, type WeekRow,
+  carriedOver, committedMinutes, dayChipParts, dayKey, dayState, dayStatus, entityVocabulary,
+  formatHours, weekDates, EMPTY_DAY,
+  type ArmId, type DayState, type Entity, type MatchableTask, type PlanningDoc, type WeekRow,
 } from '@/lib/weekDoc'
 import { cardStyle, ErrorRow, labelStyle } from '../jobs/ui'
 import CarriesOver from './CarriesOver'
@@ -24,10 +24,11 @@ export default function WeekClient() {
   // job-search inventory, so this is not all of them — see `entityVocabulary`.
   const [entities, setEntities] = useState<Entity[]>([])
   const [error, setError] = useState<string | null>(null)
-  // Which rows are done, by day date. Lives in daily_logs.notes.week, so it is
-  // state *about* the document rather than in it — the .md file stays the
-  // source of truth and a re-sync never touches a check.
-  const [checked, setChecked] = useState<Record<string, string[]>>({})
+  // What the app remembers about each day: which rows are done, and which way
+  // each conditional row went. Lives in daily_logs.notes.week, so it is state
+  // *about* the document rather than in it — the .md file stays the source of
+  // truth and a re-sync never touches a check or an answered fork.
+  const [state, setState] = useState<Record<string, DayState>>({})
   const [saveError, setSaveError] = useState<string | null>(null)
   // Which day the left column is spending itself on. Null until the document
   // arrives, then today — or day one, for a week that is over or not yet begun.
@@ -60,9 +61,9 @@ export default function WeekClient() {
       if (dates.length) {
         const stateRes = await fetch(`/api/week/state?dates=${dates.join(',')}`)
         if (!stateRes.ok) throw new Error(`Week state failed (${stateRes.status})`)
-        setChecked(await stateRes.json())
+        setState(await stateRes.json())
       } else {
-        setChecked({})
+        setState({})
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -71,28 +72,51 @@ export default function WeekClient() {
 
   useEffect(() => { load() }, [load])
 
-  // Optimistic, with a rollback: a check that didn't reach the database must
+  // Optimistic, with a rollback: a write that didn't reach the database must
   // not sit there looking saved (PLAN §0). The date is the day's own key, not
   // today's — you tick Tuesday's rows on Tuesday, but also on Wednesday.
-  const toggle = useCallback(async (date: string, row: WeekRow, next: boolean) => {
+  //
+  // Checks and forks share this because they share a row in `daily_logs` and
+  // the same failure: `apply` moves the day's state, and the same `before`
+  // goes back if the PATCH doesn't land.
+  const write = useCallback(async (
+    date: string, body: Record<string, unknown>, apply: (day: DayState) => DayState,
+  ) => {
     setSaveError(null)
-    const before = checked[date] ?? []
-    const after = next ? [...before, row.id] : before.filter((id) => id !== row.id)
-    setChecked((prev) => ({ ...prev, [date]: after }))
+    const before = state[date] ?? EMPTY_DAY
+    setState((prev) => ({ ...prev, [date]: apply(before) }))
 
     try {
       const res = await fetch('/api/week/state', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, rowId: row.id, checked: next }),
+        body: JSON.stringify({ date, ...body }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
     } catch (err) {
       console.error('Failed to save week row state:', err)
-      setChecked((prev) => ({ ...prev, [date]: before }))
+      setState((prev) => ({ ...prev, [date]: before }))
       setSaveError("Couldn't save that — tap it again.")
     }
-  }, [checked])
+  }, [state])
+
+  const toggle = useCallback((date: string, row: WeekRow, next: boolean) => {
+    write(date, { rowId: row.id, checked: next }, (day) => ({
+      ...day,
+      checked: next ? [...day.checked, row.id] : day.checked.filter((id) => id !== row.id),
+    }))
+  }, [write])
+
+  // Answering a fork, or reopening it — `null` is the reopen, and it is a real
+  // write rather than a local undo, because the answer lived in the database.
+  const choose = useCallback((date: string, row: WeekRow, arm: ArmId | null) => {
+    write(date, { rowId: row.id, branch: arm }, (day) => {
+      const branches = { ...day.branches }
+      if (arm === null) delete branches[row.id]
+      else branches[row.id] = arm
+      return { ...day, branches }
+    })
+  }, [write])
 
   const days = data?.week?.parsed?.days
   const vocabulary = useMemo(() => entityVocabulary(entities), [entities])
@@ -211,15 +235,16 @@ export default function WeekClient() {
         <DaySection
           day={day}
           status={statuses[selectedIndex]}
-          checked={new Set(selectedKey ? checked[selectedKey] ?? [] : [])}
+          state={dayState(state, selectedKey)}
           onToggle={selectedKey ? (row, next) => toggle(selectedKey, row, next) : null}
+          onChoose={selectedKey ? (row, arm) => choose(selectedKey, row, arm) : null}
           tasks={tasks}
           vocabulary={vocabulary}
         />
         <div className="week-stack">
           <DeadlineStrip deadlines={parsed.deadlines} tasks={tasks} />
           <EntityLoad days={parsed.days} vocabulary={vocabulary} />
-          <CarriesOver items={carriedOver(parsed.days, checked)} />
+          <CarriesOver items={carriedOver(parsed.days, state)} />
         </div>
       </div>
 

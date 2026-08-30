@@ -459,6 +459,42 @@ input, textarea, select, button { font-family: inherit; }
   color: var(--slate); white-space: nowrap;
 }
 
+/* A fork the document states and the week answers. The condition leads,
+   because it is the question; the two futures sit under it as what they are —
+   a choice, not a sentence. Everything here is quieter than the row it sits
+   in: an unanswered fork is a thing to notice, not an alarm. */
+.branch { display: flex; flex-direction: column; gap: 2px; }
+.branch-if {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.12em; text-transform: lowercase; color: var(--slate);
+}
+.branch-arm {
+  display: flex; align-items: baseline; gap: var(--s2);
+  width: 100%; text-align: left;
+  padding: 3px var(--s2) 3px 0;
+  font: inherit; color: var(--ash);
+  background: transparent; border: 0; border-radius: 0;
+  cursor: pointer;
+}
+.branch-arm:hover { background: var(--tint); color: var(--ivory); }
+/* `then` / `else` in the margin, at the width of the longer of the two, so the
+   two arms start on the same column and read as alternatives. */
+.branch-mark {
+  flex: none; width: 34px;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.1em; color: var(--slate);
+}
+/* The question, kept in the margin after it has been answered — this is the
+   thing you re-read when the answer turns out to have been wrong. */
+.branch-back {
+  display: block; margin-top: 2px; padding: 0;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.06em; text-transform: lowercase;
+  color: var(--slate);
+  background: transparent; border: 0; border-radius: 0; cursor: pointer;
+}
+.branch-back:hover { color: var(--champagne); }
+
 /* A 3px rule with a filled head — the only bar in the app that is a fraction
    rather than a heat value, so it borrows no colour from the habit ramp. */
 .wbar { height: 3px; background: var(--tint-2); }

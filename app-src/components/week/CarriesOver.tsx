@@ -1,7 +1,7 @@
 'use client'
 
 import { inline } from '@/lib/markdown'
-import { dayChipParts, type Carried } from '@/lib/weekDoc'
+import { dayChipParts, rowWhat, type Carried } from '@/lib/weekDoc'
 import { cardStyle, labelStyle } from '../jobs/ui'
 
 /**
@@ -26,7 +26,7 @@ export default function CarriesOver({ items }: { items: Carried[] }) {
         <span style={{ color: 'var(--amber)' }}>{items.length}</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {items.map(({ day, row }) => {
+        {items.map(({ day, row, choice }) => {
           const { weekday, num } = dayChipParts(day)
           return (
             <div
@@ -43,7 +43,9 @@ export default function CarriesOver({ items }: { items: Carried[] }) {
                 {weekday}{num ? ` ${num}` : ''}
               </span>
               <span style={{ fontSize: 13, color: 'var(--ash)', minWidth: 0, overflowWrap: 'anywhere' }}>
-                {inline(row.rawWhat, row.id)}
+                {/* An answered fork carries over as the arm you chose, not as
+                    the question — the week already settled that. */}
+                {inline(rowWhat(row, choice), row.id)}
               </span>
             </div>
           )

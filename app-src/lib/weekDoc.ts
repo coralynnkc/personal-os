@@ -8,12 +8,24 @@
 
 import { localToday, daysUntil, type Tone } from './taskDisplay'
 
+/**
+ * A fork the document states and the week resolves. `if` is the arm the
+ * condition buys; `else` is what happens otherwise, and a null `what` on it
+ * means the row simply doesn't happen. See `parseBranch` in
+ * scripts/parse-planning-doc.mjs for which rows earn one.
+ */
+export type ArmId = 'if' | 'else'
+export type RowArm = { id: ArmId; what: string | null }
+export type RowBranch = { condition: string; arms: RowArm[] }
+
 export type WeekRow = {
   id: string
   rawTime: string
   rawWhat: string
   meeting: boolean
   anchor: boolean
+  /** Absent on rows synced before branches existed, and on most rows after. */
+  branch?: RowBranch | null
 } & (
   | { kind: 'timed'; start: string; end: string; durationMin: number }
   | { kind: 'duration'; durationMin: number }
@@ -152,7 +164,20 @@ export function weekDates(days: WeekDay[]): string[] {
   return days.map(dayKey).filter((d): d is string => d !== null)
 }
 
-export type Carried = { day: WeekDay; row: WeekRow }
+export type Carried = { day: WeekDay; row: WeekRow; choice?: string }
+
+/**
+ * Everything the app remembers about one day of the plan: which rows got
+ * checked off, and which way each fork went. Both are keyed by row id and both
+ * live in `daily_logs.notes.week`, so they travel together.
+ */
+export type DayState = { checked: string[]; branches: Record<string, string> }
+
+export const EMPTY_DAY: DayState = { checked: [], branches: {} }
+
+export function dayState(state: Record<string, DayState>, key: string | null): DayState {
+  return (key && state[key]) || EMPTY_DAY
+}
 
 /**
  * What you said you would do on a day that is over, and didn't check off.
@@ -162,17 +187,23 @@ export type Carried = { day: WeekDay; row: WeekRow }
  * never checked a box in reads as nothing carried over, which is honest;
  * claiming eleven overdue items on a Wednesday because you never used the
  * feature is not.
+ *
+ * A fork you resolved to "it doesn't happen" is the one row that is neither
+ * checked nor outstanding: you answered it, and the answer was no.
  */
 export function carriedOver(
-  days: WeekDay[], checked: Record<string, string[]>, today = localToday(),
+  days: WeekDay[], state: Record<string, DayState>, today = localToday(),
 ): Carried[] {
   const out: Carried[] = []
   for (const day of days) {
     if (dayStatus(day, today) !== 'past') continue
-    const key = dayKey(day)
-    const done = key ? checked[key] : undefined
-    if (!done?.length) continue
-    for (const row of day.rows) if (!done.includes(row.id)) out.push({ day, row })
+    const { checked, branches } = dayState(state, dayKey(day))
+    if (!checked.length) continue
+    for (const row of day.rows) {
+      const choice = branches[row.id]
+      if (checked.includes(row.id) || rowSkipped(row, choice)) continue
+      out.push({ day, row, choice })
+    }
   }
   return out
 }
@@ -210,9 +241,32 @@ function tokens(s: string): string[] {
  * on the whole cell drags that commentary into the token set and drowns the
  * three words that identify the work, so the em dash is the cut.
  */
-export function rowTitle(row: WeekRow): string {
-  const plain = row.rawWhat.replace(/[*`_]/g, '').trim()
+export function rowTitle(row: WeekRow, choice?: string): string {
+  const plain = rowWhat(row, choice).replace(/[*`_]/g, '').trim()
   return plain.split(/\s+[\u2014\u2013]\s+/)[0].trim()
+}
+
+/** The arm a day's stored answer picks, or null while the fork is open. */
+export function chosenArm(row: WeekRow, choice: string | undefined): RowArm | null {
+  if (!row.branch || !choice) return null
+  return row.branch.arms.find((a) => a.id === choice) ?? null
+}
+
+/**
+ * What the row actually says, once the week has answered it. An unresolved
+ * fork still says the whole sentence — the chooser shows the arms separately,
+ * and hiding the raw text before there is an answer would be the parser
+ * deciding something the author didn't.
+ */
+export function rowWhat(row: WeekRow, choice?: string): string {
+  const arm = chosenArm(row, choice)
+  if (!arm) return row.rawWhat
+  return arm.what ?? row.branch!.arms[0].what ?? row.rawWhat
+}
+
+/** Resolved to the arm where the row doesn't happen. */
+export function rowSkipped(row: WeekRow, choice?: string): boolean {
+  return chosenArm(row, choice)?.what === null
 }
 
 /** What `matchTask` needs of either side: a name, and the day it belongs to. */
@@ -318,8 +372,8 @@ function mentionAt(text: string, code: string): number {
  * because that is the one the sentence is about; a longer code only breaks a
  * tie between two named at the same place.
  */
-export function rowEntity(row: WeekRow, vocabulary: Entity[]): Entity | null {
-  const title = rowTitle(row)
+export function rowEntity(row: WeekRow, vocabulary: Entity[], choice?: string): Entity | null {
+  const title = rowTitle(row, choice)
   let best: { entity: Entity; at: number; length: number } | null = null
   for (const entity of vocabulary) {
     const code = entityCode(entity)

@@ -185,6 +185,58 @@ function rowId(rawTime, rawWhat, seen) {
   return n === 1 ? base : `${base}-${n}`
 }
 
+/**
+ * A row that states two futures instead of one.
+ *
+ * The docs write these because the week genuinely has forks in it: Monday's
+ * 2:30 block is "**HW 2 starts here** if Saturday cleared HW 1 — otherwise
+ * HW 1, due 8 AM tomorrow", and which of those it actually was is decided on
+ * Saturday, not when the file was typed. Rendered flat, the row states both
+ * and means neither — you read it on Monday afternoon and have to re-derive
+ * the answer from a day that is already over.
+ *
+ * So the fork is pulled out and the app remembers which way it went
+ * (`daily_logs.notes.week.branches`, keyed by row id, exactly like a check).
+ * The file is still read-only: a resolution is state *about* a row.
+ *
+ * Two forms, and the conservatism is deliberate — a false positive rewrites a
+ * row into a question the author never asked:
+ *
+ *   `A if C — otherwise B`   → two arms, both written out
+ *   `A, if C`                → one arm; the other is the row not happening
+ *
+ * The second form only fires when the condition runs to the *end* of the
+ * cell, so Thursday's "…then CS 370 team registration if Wednesday did not
+ * close it, then the Marshall Movie extra credit" is left alone: it has an
+ * `if` in it, but the row happens either way and only part of it is in doubt.
+ * Verified against the whole week doc — two rows match, and they are the two
+ * that are actually conditional.
+ */
+const BRANCH_TWO =
+  /^(.+?)[,;]?\s+\bif\b\s+(.+?)\s*(?:[\u2014\u2013]|[,;])\s*(?:otherwise|else)\b[\s,:\u2014\u2013-]*(.+)$/i
+const BRANCH_ONE = /^(.+?)[,;]?\s+\bif\b\s+([^,;]{3,}?)\.?$/i
+
+export function parseBranch(rawWhat) {
+  const text = String(rawWhat ?? '').trim()
+  const m = text.match(BRANCH_TWO) ?? text.match(BRANCH_ONE)
+  if (!m) return null
+  const head = m[1].trim().replace(/[,;]$/, '')
+  const condition = m[2].trim().replace(/[.?]$/, '')
+  const words = condition.split(/\s+/)
+  // A condition is a clause. One word is a fragment of something else ("if
+  // possible"), and a dozen is a sentence that happens to contain an `if`.
+  if (!head || words.length < 2 || words.length > 12) return null
+  return {
+    condition,
+    arms: [
+      { id: 'if', what: head },
+      // No `otherwise` arm means the alternative is that the row doesn't
+      // happen at all — which is a real answer, not a missing one.
+      { id: 'else', what: m[3] ? m[3].trim() : null },
+    ],
+  }
+}
+
 function splitTableRow(line) {
   return line.replace(/^\||\|$/g, '').split('|').map((c) => c.trim())
 }
@@ -229,6 +281,9 @@ function extractTable(body) {
           meeting: rawWhat.includes('🔵'),
           // A bold What cell is the day's anchor item.
           anchor: /\*\*[^*]+\*\*/.test(rawWhat),
+          // Null for the overwhelming majority of rows; a fork when the row
+          // states one.
+          branch: parseBranch(rawWhat),
           ...parseTimeCell(rawTime),
         })
       }
