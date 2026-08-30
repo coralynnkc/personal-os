@@ -121,8 +121,9 @@ export default function JobsClient() {
         throw new Error(msg ?? `HTTP ${res.status}`)
       }
       const created = await res.json()
+      // Stay where you are: the row flips to "Tracked" in place, so you can
+      // work down a filtered list without being thrown to the pipeline.
       setApps(prev => [created, ...prev])
-      setView('pipeline')
     } catch (e) {
       console.error('track error:', e)
       setError(`Could not track ${c.name}: ${(e as Error).message}`)
