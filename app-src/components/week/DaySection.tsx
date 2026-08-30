@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Check } from 'lucide-react'
 import Markdown, { inline } from '@/lib/markdown'
 import {
   clock, committedMinutes, dayTitle, longHours, meridiem, overlaps,
@@ -8,35 +9,73 @@ import {
 } from '@/lib/weekDoc'
 import { cardStyle, Empty, RegionHead } from '../jobs/ui'
 
-function Schedule({ day }: { day: WeekDay }) {
+function Schedule({
+  day, checked, onToggle,
+}: { day: WeekDay; checked: Set<string>; onToggle: ((row: WeekRow, next: boolean) => void) | null }) {
   return (
     <div className="sched">
       {day.rows.map((row) => {
         // A collision inside the day is the thing the flat table states as a
         // footnote and never shows — two 🔵 meetings sitting inside a class.
         const clash = day.rows.some((other) => other.id !== row.id && overlaps(row, other))
-        return <Row key={row.id} row={row} clash={clash} />
+        return (
+          <Row
+            key={row.id}
+            row={row}
+            clash={clash}
+            done={checked.has(row.id)}
+            onToggle={onToggle}
+          />
+        )
       })}
     </div>
   )
 }
 
-function Row({ row, clash }: { row: WeekRow; clash: boolean }) {
+function Row({
+  row, clash, done, onToggle,
+}: {
+  row: WeekRow
+  clash: boolean
+  done: boolean
+  onToggle: ((row: WeekRow, next: boolean) => void) | null
+}) {
   const when =
     row.kind === 'timed' ? `${clock(row.start)}–${clock(row.end)}${meridiem(row.end)}`
     : row.kind === 'duration' ? `${row.durationMin} min`
     : row.rawTime || '—'
 
+  // The What cell is markdown; an aria-label reads the asterisks aloud.
+  const label = row.rawWhat.replace(/[*`]/g, '').trim() || 'this row'
+
   return (
     <>
-      <span className="sched-tm">{when}</span>
+      {/* A day with no date behind it has nowhere to write a check, so the
+          column holds its width and stays empty rather than offering a
+          control that would drop the tap. */}
+      <span className="sched-ck">
+        {onToggle && (
+          <button
+            type="button"
+            className="check-circle"
+            data-done={done}
+            aria-pressed={done}
+            aria-label={`Mark “${label}” ${done ? 'not done' : 'done'}`}
+            onClick={() => onToggle(row, !done)}
+          >
+            <Check size={8} strokeWidth={3} />
+          </button>
+        )}
+      </span>
+      <span className="sched-tm" style={done ? { opacity: 0.5 } : undefined}>{when}</span>
       {/* `inline` rather than `<Markdown>`: a row is one table cell, and the
           block renderer wraps it in a paragraph whose margins break the
           baseline the three columns share. */}
       <span
         className="sched-what"
         style={{
-          color: row.anchor ? 'var(--ivory)' : 'var(--ash)',
+          color: done ? 'var(--slate)' : row.anchor ? 'var(--ivory)' : 'var(--ash)',
+          textDecoration: done ? 'line-through' : undefined,
           borderLeft: `1px solid ${row.meeting ? 'var(--champagne)' : 'transparent'}`,
           paddingLeft: row.meeting ? 'var(--s3)' : 0,
         }}
@@ -61,7 +100,14 @@ function Row({ row, clash }: { row: WeekRow; clash: boolean }) {
  * not a thing you read; one day is. The strip above picks which, and this
  * spends the whole column on it.
  */
-export default function DaySection({ day, status }: { day: WeekDay; status: DayStatus }) {
+export default function DaySection({
+  day, status, checked, onToggle,
+}: {
+  day: WeekDay
+  status: DayStatus
+  checked: Set<string>
+  onToggle: ((row: WeekRow, next: boolean) => void) | null
+}) {
   const [showProse, setShowProse] = useState(status === 'today')
   const minutes = committedMinutes(day)
 
@@ -80,7 +126,9 @@ export default function DaySection({ day, status }: { day: WeekDay; status: DayS
         </div>
       )}
 
-      {day.rows.length > 0 ? <Schedule day={day} /> : <Empty>Nothing scheduled.</Empty>}
+      {day.rows.length > 0
+        ? <Schedule day={day} checked={checked} onToggle={onToggle} />
+        : <Empty>Nothing scheduled.</Empty>}
 
       {day.prose && (
         showProse ? (

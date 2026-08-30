@@ -136,6 +136,47 @@ export function overlaps(a: WeekRow, b: WeekRow): boolean {
   return a.start < b.end && b.start < a.end
 }
 
+/**
+ * The date a day's state is written under. A weekend written as one heading
+ * ("Sat Sept 5 – Sun Sept 6") has two dates and one set of rows, so the first
+ * one owns them; a heading with no date at all can't hold state, and returning
+ * null is what makes the check circle stay away rather than write somewhere
+ * arbitrary.
+ */
+export function dayKey(day: WeekDay): string | null {
+  return day.dates[0] ?? null
+}
+
+/** Every date the week touches — what the state route needs asking for. */
+export function weekDates(days: WeekDay[]): string[] {
+  return days.map(dayKey).filter((d): d is string => d !== null)
+}
+
+export type Carried = { day: WeekDay; row: WeekRow }
+
+/**
+ * What you said you would do on a day that is over, and didn't check off.
+ *
+ * Unchecked is not the same as undone — most rows never get touched — so this
+ * only counts days that have *some* state written against them. A week you
+ * never checked a box in reads as nothing carried over, which is honest;
+ * claiming eleven overdue items on a Wednesday because you never used the
+ * feature is not.
+ */
+export function carriedOver(
+  days: WeekDay[], checked: Record<string, string[]>, today = localToday(),
+): Carried[] {
+  const out: Carried[] = []
+  for (const day of days) {
+    if (dayStatus(day, today) !== 'past') continue
+    const key = dayKey(day)
+    const done = key ? checked[key] : undefined
+    if (!done?.length) continue
+    for (const row of day.rows) if (!done.includes(row.id)) out.push({ day, row })
+  }
+  return out
+}
+
 export type MatchableTask = {
   id: string
   title: string

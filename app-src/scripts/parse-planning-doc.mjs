@@ -12,6 +12,8 @@
  * for prose.
  */
 
+import { createHash } from 'node:crypto'
+
 const MONTHS = {
   jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3,
   may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7,
@@ -167,6 +169,22 @@ function enforceMonotonic(rows) {
   return rows
 }
 
+/**
+ * A row's id has to survive an edit to the document. Positional ids
+ * (`${dayId}-r3`) don't: insert a row at 9am and every id below it slides onto
+ * the wrong item, so anything stored against them — a check mark, a resolved
+ * branch — silently moves to a different line at the next sync. So the id is
+ * derived from what the row *says*. Two rows in a day that say exactly the
+ * same thing get a `-2` suffix, which is positional again, but only among
+ * identical twins where there is nothing else to tell them apart.
+ */
+function rowId(rawTime, rawWhat, seen) {
+  const base = 'r-' + createHash('sha1').update(`${rawTime}\u0000${rawWhat}`).digest('hex').slice(0, 8)
+  const n = (seen.get(base) ?? 0) + 1
+  seen.set(base, n)
+  return n === 1 ? base : `${base}-${n}`
+}
+
 function splitTableRow(line) {
   return line.replace(/^\||\|$/g, '').split('|').map((c) => c.trim())
 }
@@ -178,9 +196,10 @@ const isSeparatorRow = (line) => /^\|?[\s:|-]+\|[\s:|-]*$/.test(line) && line.in
  * the prose with the table removed. A day with no table is fine; a day whose
  * table has different columns is left in the prose untouched.
  */
-function extractTable(body, dayId) {
+function extractTable(body) {
   const lines = body.split('\n')
   const rows = []
+  const seen = new Map()
   const kept = []
   let i = 0
   let found = false
@@ -202,7 +221,7 @@ function extractTable(body, dayId) {
       const rawWhat = cells.slice(1).join(' | ').trim()
       if (rawTime || rawWhat) {
         rows.push({
-          id: `${dayId}-r${rows.length + 1}`,
+          id: rowId(rawTime, rawWhat, seen),
           rawTime,
           rawWhat,
           // 🔵 marks something someone else scheduled — a meeting you attend,
@@ -313,7 +332,7 @@ export function parseDoc(raw, { weekStart, kind }) {
       const first = dateFromMonthDay(m[2], m[3], anchor)
       const second = m[4] ? dateFromMonthDay(m[4], m[5], anchor) : null
       const dates = [first, second].filter(Boolean)
-      const { rows, prose } = extractTable(text, id)
+      const { rows, prose } = extractTable(text)
       days.push({
         id,
         heading: block.heading,

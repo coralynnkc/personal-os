@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Markdown from '@/lib/markdown'
 import { localToday } from '@/lib/taskDisplay'
 import {
-  committedMinutes, dayChipParts, dayStatus, formatHours,
-  type MatchableTask, type PlanningDoc,
+  carriedOver, committedMinutes, dayChipParts, dayKey, dayStatus, formatHours, weekDates,
+  type MatchableTask, type PlanningDoc, type WeekRow,
 } from '@/lib/weekDoc'
 import { cardStyle, ErrorRow, labelStyle } from '../jobs/ui'
+import CarriesOver from './CarriesOver'
 import DaySection from './DaySection'
 import DeadlineStrip from './DeadlineStrip'
 
@@ -18,6 +19,11 @@ export default function WeekClient() {
   const [data, setData] = useState<Payload | null>(null)
   const [tasks, setTasks] = useState<MatchableTask[]>([])
   const [error, setError] = useState<string | null>(null)
+  // Which rows are done, by day date. Lives in daily_logs.notes.week, so it is
+  // state *about* the document rather than in it — the .md file stays the
+  // source of truth and a re-sync never touches a check.
+  const [checked, setChecked] = useState<Record<string, string[]>>({})
+  const [saveError, setSaveError] = useState<string | null>(null)
   // Which day the left column is spending itself on. Null until the document
   // arrives, then today — or day one, for a week that is over or not yet begun.
   const [selected, setSelected] = useState<string | null>(null)
@@ -30,17 +36,53 @@ export default function WeekClient() {
         fetch('/api/tasks?status=open'),
       ])
       if (!docRes.ok) throw new Error(`Documents failed (${docRes.status})`)
-      setData(await docRes.json())
+      const payload: Payload = await docRes.json()
+      setData(payload)
       // The deadline strip degrades to "not tracked" without tasks, which is
       // wrong rather than empty — so a task failure is an error too.
       if (!taskRes.ok) throw new Error(`Tasks failed (${taskRes.status})`)
       setTasks(await taskRes.json())
+
+      // The dates come out of the document, so this is a second round trip
+      // rather than a third parallel one. A day with no boxes ticked simply
+      // isn't in the response.
+      const dates = weekDates(payload.week?.parsed?.days ?? [])
+      if (dates.length) {
+        const stateRes = await fetch(`/api/week/state?dates=${dates.join(',')}`)
+        if (!stateRes.ok) throw new Error(`Week state failed (${stateRes.status})`)
+        setChecked(await stateRes.json())
+      } else {
+        setChecked({})
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     }
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Optimistic, with a rollback: a check that didn't reach the database must
+  // not sit there looking saved (PLAN §0). The date is the day's own key, not
+  // today's — you tick Tuesday's rows on Tuesday, but also on Wednesday.
+  const toggle = useCallback(async (date: string, row: WeekRow, next: boolean) => {
+    setSaveError(null)
+    const before = checked[date] ?? []
+    const after = next ? [...before, row.id] : before.filter((id) => id !== row.id)
+    setChecked((prev) => ({ ...prev, [date]: after }))
+
+    try {
+      const res = await fetch('/api/week/state', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, rowId: row.id, checked: next }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    } catch (err) {
+      console.error('Failed to save week row state:', err)
+      setChecked((prev) => ({ ...prev, [date]: before }))
+      setSaveError("Couldn't save that — tap it again.")
+    }
+  }, [checked])
 
   const days = data?.week?.parsed?.days
   const statuses = useMemo(() => {
@@ -99,6 +141,7 @@ export default function WeekClient() {
 
   const selectedIndex = Math.max(0, parsed.days.findIndex((d) => d.id === selected))
   const day = parsed.days[selectedIndex]
+  const selectedKey = dayKey(day)
   const reference = [parsed.intro, ...parsed.sections].filter((s) => s !== null)
 
   return (
@@ -148,11 +191,21 @@ export default function WeekClient() {
         })}
       </div>
 
+      {saveError && (
+        <div style={cardStyle}><ErrorRow message={saveError} onRetry={load} /></div>
+      )}
+
       {/* One day in full, beside the things that are true of the whole week. */}
       <div className="week-two">
-        <DaySection day={day} status={statuses[selectedIndex]} />
+        <DaySection
+          day={day}
+          status={statuses[selectedIndex]}
+          checked={new Set(selectedKey ? checked[selectedKey] ?? [] : [])}
+          onToggle={selectedKey ? (row, next) => toggle(selectedKey, row, next) : null}
+        />
         <div className="week-stack">
           <DeadlineStrip deadlines={parsed.deadlines} tasks={tasks} />
+          <CarriesOver items={carriedOver(parsed.days, checked)} />
         </div>
       </div>
 

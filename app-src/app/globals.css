@@ -425,12 +425,12 @@ input, textarea, select, button { font-family: inherit; }
   .week-two { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* The schedule is three columns: when, what, and what is true of the row.
-   The third is the slot overlaps sit in today, and a matched task's state
+/* The schedule is four columns: the mark, when, what, and what is true of the
+   row. The last is the slot overlaps sit in today, and a matched task's state
    will sit in later — it is the reason this is a grid and not a list. */
 .sched {
   display: grid;
-  grid-template-columns: 104px minmax(0, 1fr) auto;
+  grid-template-columns: 22px 104px minmax(0, 1fr) auto;
   /* The three columns are one line read across, so they share a baseline. */
   align-items: baseline;
 }
@@ -439,6 +439,11 @@ input, textarea, select, button { font-family: inherit; }
   border-bottom: 1px solid var(--rule-2);
   min-width: 0;
 }
+/* The margin mark. A cell with no text has no baseline for the grid to align
+   it on, so it hangs from the top instead and is nudged onto the first line of
+   the What column (13px text on a 1.5 line box, a 14px circle). */
+.sched-ck { align-self: start; padding-top: calc(var(--s3) + 3px); }
+
 .sched-tm {
   font-family: var(--font-mono); font-variant-numeric: tabular-nums;
   font-size: 11px; letter-spacing: 0.04em; color: var(--slate);
