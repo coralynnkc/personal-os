@@ -5,7 +5,7 @@ import Markdown from '@/lib/markdown'
 import { localToday } from '@/lib/taskDisplay'
 import {
   carriedOver, committedMinutes, dayChipParts, dayKey, dayState, dayStatus, entityVocabulary,
-  formatHours, weekDates, EMPTY_DAY,
+  formatHours, rowTask, weekDates, EMPTY_DAY,
   type ArmId, type DayState, type Entity, type MatchableTask, type PlanningDoc, type WeekRow,
 } from '@/lib/weekDoc'
 import { cardStyle, ErrorRow, labelStyle } from '../jobs/ui'
@@ -39,7 +39,12 @@ export default function WeekClient() {
     try {
       const [docRes, taskRes, entityRes] = await Promise.all([
         fetch('/api/documents'),
-        fetch('/api/tasks?status=open'),
+        // `status=all`, not `open`: a row's tick *is* its task's completion
+        // now, so a task has to stay findable after it is done — filtered to
+        // open, the join would vanish the moment you used it and the row would
+        // spring back untouched on the next load. `matchTask` breaks ties
+        // toward the open one so last week's finished duplicate can't win.
+        fetch('/api/tasks?status=all'),
         fetch('/api/entities'),
       ])
       if (!docRes.ok) throw new Error(`Documents failed (${docRes.status})`)
@@ -76,9 +81,9 @@ export default function WeekClient() {
   // not sit there looking saved (PLAN §0). The date is the day's own key, not
   // today's — you tick Tuesday's rows on Tuesday, but also on Wednesday.
   //
-  // Checks and forks share this because they share a row in `daily_logs` and
-  // the same failure: `apply` moves the day's state, and the same `before`
-  // goes back if the PATCH doesn't land.
+  // `apply` moves the day's state, and the same `before` goes back if the
+  // PATCH doesn't land. `toggle` doesn't use this, because a tick is two
+  // writes that have to fail together.
   const write = useCallback(async (
     date: string, body: Record<string, unknown>, apply: (day: DayState) => DayState,
   ) => {
@@ -100,12 +105,64 @@ export default function WeekClient() {
     }
   }, [state])
 
-  const toggle = useCallback((date: string, row: WeekRow, next: boolean) => {
-    write(date, { rowId: row.id, checked: next }, (day) => ({
-      ...day,
-      checked: next ? [...day.checked, row.id] : day.checked.filter((id) => id !== row.id),
+  /**
+   * Ticking a row off.
+   *
+   * A row joined to a real task is the same work written down twice, so one
+   * tick settles both: `daily_logs.notes.week.checked` keeps the document's
+   * own record, and the task gets completed the way the today and tasks tabs
+   * would have completed it. Two requests, one gesture — so they roll back
+   * together, because a row that ticked but left its task open is exactly the
+   * quiet disagreement this is here to end.
+   *
+   * An unjoined row is unchanged: it writes the day's state and nothing else.
+   */
+  const toggle = useCallback(async (
+    date: string, row: WeekRow, next: boolean, task: MatchableTask | null,
+  ) => {
+    setSaveError(null)
+    const beforeDay = state[date] ?? EMPTY_DAY
+    const beforeTasks = tasks
+    const completed_at = next ? new Date().toISOString() : null
+
+    setState((prev) => ({
+      ...prev,
+      [date]: {
+        ...beforeDay,
+        checked: next
+          ? [...beforeDay.checked, row.id]
+          : beforeDay.checked.filter((id) => id !== row.id),
+      },
     }))
-  }, [write])
+    if (task) {
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, completed_at } : t)))
+    }
+
+    try {
+      const writes = [
+        fetch('/api/week/state', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date, rowId: row.id, checked: next }),
+        }),
+      ]
+      if (task) {
+        writes.push(fetch(`/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completed_at }),
+        }))
+      }
+      const results = await Promise.all(writes)
+      const failed = results.find((res) => !res.ok)
+      if (failed) throw new Error(`HTTP ${failed.status}`)
+    } catch (err) {
+      console.error('Failed to save week row state:', err)
+      setState((prev) => ({ ...prev, [date]: beforeDay }))
+      setTasks(beforeTasks)
+      setSaveError("Couldn't save that — tap it again.")
+    }
+  }, [state, tasks])
 
   // Answering a fork, or reopening it — `null` is the reopen, and it is a real
   // write rather than a local undo, because the answer lived in the database.
@@ -236,7 +293,7 @@ export default function WeekClient() {
           day={day}
           status={statuses[selectedIndex]}
           state={dayState(state, selectedKey)}
-          onToggle={selectedKey ? (row, next) => toggle(selectedKey, row, next) : null}
+          onToggle={selectedKey ? (row, next, task) => toggle(selectedKey, row, next, task) : null}
           onChoose={selectedKey ? (row, arm) => choose(selectedKey, row, arm) : null}
           tasks={tasks}
           vocabulary={vocabulary}
@@ -244,7 +301,15 @@ export default function WeekClient() {
         <div className="week-stack">
           <DeadlineStrip deadlines={parsed.deadlines} tasks={tasks} />
           <EntityLoad days={parsed.days} vocabulary={vocabulary} />
-          <CarriesOver items={carriedOver(parsed.days, state)} />
+          {/* A row whose task you finished elsewhere isn't outstanding, so it
+              doesn't carry over — the same join the checkbox uses, asked of a
+              day that is already over. */}
+          <CarriesOver
+            items={carriedOver(parsed.days, state, {
+              isDone: (d, row, choice) =>
+                Boolean(rowTask(row, dayKey(d), tasks, choice)?.completed_at),
+            })}
+          />
         </div>
       </div>
 
