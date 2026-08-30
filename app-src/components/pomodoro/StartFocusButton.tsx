@@ -8,10 +8,19 @@ import { usePomodoro } from './PomodoroProvider'
  * what turns the timer from a kitchen timer into a record of what the time
  * went into. Sessions land in `daily_logs.notes.pomodoros` with the taskId.
  */
-export default function StartFocusButton({ taskId, taskTitle, size = 16 }: {
+export default function StartFocusButton({
+  taskId, taskTitle, size = 16, className = 'ghost-action',
+}: {
   taskId: string
   taskTitle: string
   size?: number
+  /**
+   * `ghost-action` hides the button until a `.row-hover` ancestor is hovered,
+   * which is right on a task list and wrong anywhere the row isn't one — the
+   * week schedule is a bare grid with no row element to hover, so it passes
+   * `''` and the ▶ simply stays.
+   */
+  className?: string
 }) {
   const { startFocus, state, running } = usePomodoro()
   const active = state.taskId === taskId && state.phase !== 'idle'
@@ -24,7 +33,7 @@ export default function StartFocusButton({ taskId, taskTitle, size = 16 }: {
       }}
       aria-label={`Start a focus session on ${taskTitle}`}
       title={active && running ? 'Focusing on this — click to restart' : 'Start a focus session'}
-      className="ghost-action"
+      className={className}
       style={{
         flexShrink: 0,
         width: size + 4, height: size + 4,
