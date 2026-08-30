@@ -366,3 +366,86 @@ input, textarea, select, button { font-family: inherit; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ── the week ──────────────────────────────────────────────────────────────
+   The strip is a selector, not a set of anchors: seven days across one rule,
+   the number the thing you read first. Four columns on a phone so the numbers
+   stay legible rather than seven slivers of one. */
+.wstrip {
+  display: grid;
+  /* Not `repeat(7, …)`: a week doc is whatever the file says it is, and the
+     real ones run to nine or ten blocks (a weekend written as one heading,
+     the Monday after). auto-fit lays however many there are across the width
+     and folds to four on a phone, without the count being baked in here. */
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+  border-bottom: 1px solid var(--rule);
+}
+.wday {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--s3) var(--s2) var(--s3) var(--s3);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--rule-2);
+  border-radius: 0;
+  cursor: pointer;
+}
+.wday:last-child { border-right: 0; }
+.wday .d {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--slate);
+}
+.wday .n {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 22px; line-height: 1.1; color: var(--ash);
+}
+.wday .h { font-family: var(--font-mono); font-size: 10.5px; color: var(--slate); }
+
+/* Past is dimmed rather than hidden — it still holds the hours you spent.
+   Champagne means current, so today wears it; the day you are *reading* is
+   marked by the rule under it instead, or the two would compete. */
+.wday-past { opacity: 0.4; }
+.wday-today .d, .wday-today .n, .wday-today .h { color: var(--champagne); }
+.wday-selected { box-shadow: inset 0 -1px 0 var(--champagne); }
+.wday-selected .n { color: var(--ivory); }
+.wday-today.wday-selected .n { color: var(--champagne); }
+.wday-selected.wday-past { opacity: 1; }
+
+/* One day expanded beside the things that are true of the whole week. */
+.week-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: var(--s6);
+  align-items: start;
+}
+.week-stack { display: flex; flex-direction: column; gap: var(--s6); min-width: 0; }
+
+@media (max-width: 719.98px) {
+  .week-two { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The schedule is three columns: when, what, and what is true of the row.
+   The third is the slot overlaps sit in today, and a matched task's state
+   will sit in later — it is the reason this is a grid and not a list. */
+.sched {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr) auto;
+  /* The three columns are one line read across, so they share a baseline. */
+  align-items: baseline;
+}
+.sched > * {
+  padding: var(--s3) var(--s3) var(--s3) 0;
+  border-bottom: 1px solid var(--rule-2);
+  min-width: 0;
+}
+.sched-tm {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 11px; letter-spacing: 0.04em; color: var(--slate);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sched-what { font-size: 13px; line-height: 1.5; color: var(--ash); overflow-wrap: anywhere; }
+.sched-rt {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
+  color: var(--slate); text-align: right; white-space: nowrap;
+}

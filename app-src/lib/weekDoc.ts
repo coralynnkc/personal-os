@@ -71,12 +71,29 @@ export function dayStatus(day: WeekDay, today = localToday()): DayStatus {
   return 'future'
 }
 
-/** `Sat 29`, or `Sat 5–6` for a heading that spans two days. */
-export function dayChipLabel(day: WeekDay): string {
+/**
+ * The strip sets the weekday and the date number on two lines, at two sizes —
+ * the number is what you actually read — so the label comes apart rather than
+ * arriving pre-joined. `num` is empty for a heading with no date behind it,
+ * and `5–6` for one that spans two days.
+ */
+export function dayChipParts(day: WeekDay): { weekday: string; num: string } {
   const weekday = day.weekday.slice(0, 3)
-  if (!day.dates.length) return weekday
+  if (!day.dates.length) return { weekday, num: '' }
   const nums = day.dates.map((d) => Number(d.slice(8, 10)))
-  return nums.length > 1 ? `${weekday} ${nums[0]}–${nums[1]}` : `${weekday} ${nums[0]}`
+  return { weekday, num: nums.length > 1 ? `${nums[0]}\u2013${nums[1]}` : String(nums[0]) }
+}
+
+/**
+ * The day's own name, spelled out. The docs abbreviate in their headings
+ * ("Sun · Aug 30"), and `sun` set in Italianno at 30px reads as a typo rather
+ * than a title — so the date says the word when there is a date to ask.
+ */
+export function dayTitle(day: WeekDay): string {
+  if (!day.dates.length) return day.weekday.toLowerCase()
+  return day.dates
+    .map((d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase())
+    .join('\u2013')
 }
 
 /**
@@ -86,6 +103,14 @@ export function dayChipLabel(day: WeekDay): string {
  */
 export function committedMinutes(day: WeekDay): number {
   return day.rows.reduce((n, r) => n + ('durationMin' in r ? r.durationMin : 0), 0)
+}
+
+/** `5h 20m` — the day heading spends the exact figure the strip rounds. */
+export function longHours(minutes: number): string {
+  if (!minutes) return 'nothing committed'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return `${[h && `${h}h`, m && `${m}m`].filter(Boolean).join(' ')} committed`
 }
 
 export function formatHours(minutes: number): string {

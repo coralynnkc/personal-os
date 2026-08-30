@@ -1,11 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Markdown from '@/lib/markdown'
 import { localToday } from '@/lib/taskDisplay'
 import {
-  committedMinutes, dayChipLabel, dayStatus, formatHours,
+  committedMinutes, dayChipParts, dayStatus, formatHours,
   type MatchableTask, type PlanningDoc,
 } from '@/lib/weekDoc'
 import { cardStyle, ErrorRow, labelStyle } from '../jobs/ui'
@@ -19,6 +18,9 @@ export default function WeekClient() {
   const [data, setData] = useState<Payload | null>(null)
   const [tasks, setTasks] = useState<MatchableTask[]>([])
   const [error, setError] = useState<string | null>(null)
+  // Which day the left column is spending itself on. Null until the document
+  // arrives, then today — or day one, for a week that is over or not yet begun.
+  const [selected, setSelected] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setError(null)
@@ -39,6 +41,32 @@ export default function WeekClient() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  const days = data?.week?.parsed?.days
+  const statuses = useMemo(() => {
+    const today = localToday()
+    return (days ?? []).map((d) => dayStatus(d, today))
+  }, [days])
+
+  // Defaulting is an effect and not an initialiser because the days arrive
+  // after mount. It settles once per document: a day you picked by hand
+  // survives a refetch, and the rollover past midnight does not yank the
+  // column out from under you mid-read.
+  //
+  // A `#day-…` hash wins over today. The seven anchors are gone, but the URLs
+  // they minted are in notes and in history, and selecting the day they name
+  // is what those links meant — scrolling to the one section on the page is
+  // not.
+  useEffect(() => {
+    if (!days?.length) return
+    setSelected((current) => {
+      if (current && days.some((d) => d.id === current)) return current
+      const hash = decodeURIComponent(window.location.hash.slice(1))
+      if (hash && days.some((d) => d.id === hash)) return hash
+      const i = statuses.indexOf('today')
+      return days[i === -1 ? 0 : i].id
+    })
+  }, [days, statuses])
 
   if (error) {
     return (
@@ -69,9 +97,9 @@ export default function WeekClient() {
     )
   }
 
-  const today = localToday()
-  const statuses = parsed.days.map((d) => dayStatus(d, today))
-  const todayIndex = statuses.indexOf('today')
+  const selectedIndex = Math.max(0, parsed.days.findIndex((d) => d.id === selected))
+  const day = parsed.days[selectedIndex]
+  const reference = [parsed.intro, ...parsed.sections].filter((s) => s !== null)
 
   return (
     <div style={{ padding: 'var(--s5)', display: 'grid', gap: 'var(--s6)', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
@@ -79,6 +107,9 @@ export default function WeekClient() {
         display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 'var(--s3)',
         paddingBottom: 'var(--s3)', borderBottom: '1px solid var(--rule)',
       }}>
+        {/* The semester documents are still at /week/<slug>; nothing links to
+            them from here, because a nav to two long documents is not a thing
+            you want in front of you mid-week. */}
         <h1 style={{ fontSize: 16, fontWeight: 400, letterSpacing: '0.04em', color: 'var(--ivory)' }}>
           {doc.title ?? doc.slug}
         </h1>
@@ -87,84 +118,59 @@ export default function WeekClient() {
             synced {new Date(doc.synced_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
         )}
-        <span style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
-          {data.semester.map((s) => (
-            <Link key={s.slug} href={`/week/${s.slug}`} style={{
-              fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em',
-              textTransform: 'uppercase', color: 'var(--champagne)', textDecoration: 'none',
-            }}>
-              {s.title ?? s.slug}
-            </Link>
-          ))}
-        </span>
       </header>
 
-      {/* Day strip: seven chips, today emphasised, each badged with the hours
-          it has already committed. Click to jump. */}
-      {/* Seven days across one rule — a strip of the week, not seven chips.
-          Four columns below 720px so the numbers stay legible on a phone. */}
-      <nav
-        aria-label="Days this week"
-        className="grid grid-cols-4 sm:grid-cols-7"
-        style={{ borderBottom: '1px solid var(--rule)' }}
-      >
-        {parsed.days.map((day, i) => {
+      {/* The strip picks the day rather than scrolling to it — seven days
+          across one rule, each badged with the hours it has committed. */}
+      <div role="group" aria-label="Days this week" className="wstrip">
+        {parsed.days.map((d, i) => {
           const status = statuses[i]
-          const active = status === 'today'
+          const { weekday, num } = dayChipParts(d)
+          const active = d.id === day.id
           return (
-            <a
-              key={day.id}
-              href={`#${day.id}`}
-              style={{
-                display: 'flex', flexDirection: 'column',
-                padding: 'var(--s3) 0 var(--s3) var(--s3)',
-                borderRight: i === parsed.days.length - 1 ? 0 : '1px solid var(--rule-2)',
-                textDecoration: 'none',
-                opacity: status === 'past' ? 0.4 : 1,
-                color: active ? 'var(--champagne)' : 'var(--ash)',
-              }}
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => setSelected(d.id)}
+              aria-pressed={active}
+              className={[
+                'wday tap',
+                status === 'past' && 'wday-past',
+                status === 'today' && 'wday-today',
+                active && 'wday-selected',
+              ].filter(Boolean).join(' ')}
             >
-              <span className="mono" style={{
-                fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
-                color: active ? 'var(--champagne)' : 'var(--slate)',
-              }}>
-                {dayChipLabel(day)}
-              </span>
-              <span className="mono" style={{ fontSize: 10.5, color: active ? 'var(--champagne)' : 'var(--slate)' }}>
-                {formatHours(committedMinutes(day))}
-              </span>
-            </a>
+              <div className="d">{weekday}</div>
+              <div className="n">{num || '—'}</div>
+              <div className="h">{formatHours(committedMinutes(d))}</div>
+            </button>
           )
         })}
-      </nav>
+      </div>
 
-      <DeadlineStrip deadlines={parsed.deadlines} tasks={tasks} />
+      {/* One day in full, beside the things that are true of the whole week. */}
+      <div className="week-two">
+        <DaySection day={day} status={statuses[selectedIndex]} />
+        <div className="week-stack">
+          <DeadlineStrip deadlines={parsed.deadlines} tasks={tasks} />
+        </div>
+      </div>
 
-      {parsed.intro && (
-        <section style={cardStyle}>
-          <div style={{ ...labelStyle, marginBottom: 'var(--s3)', paddingBottom: 'var(--s2)', borderBottom: '1px solid var(--rule)' }}>{parsed.intro.heading}</div>
-          <Markdown md={parsed.intro.markdown} />
-        </section>
+      {/* Intro and the thematic sections are reference, not the week: full
+          width, below the fold, behind an eyebrow rather than a region title. */}
+      {reference.length > 0 && (
+        <div style={{ display: 'grid', gap: 'var(--s5)', paddingTop: 'var(--s5)', borderTop: '1px solid var(--rule)' }}>
+          <div className="eyebrow">The week, written out</div>
+          {reference.map((section) => (
+            <section key={section.id} id={section.id} style={cardStyle}>
+              <div style={{ ...labelStyle, marginBottom: 'var(--s3)', paddingBottom: 'var(--s2)', borderBottom: '1px solid var(--rule)' }}>
+                {section.heading}
+              </div>
+              <Markdown md={section.markdown} />
+            </section>
+          ))}
+        </div>
       )}
-
-      {parsed.days.map((day, i) => (
-        <DaySection
-          key={day.id}
-          day={day}
-          status={statuses[i]}
-          // Today open; everything else closed, except that a week already
-          // over (or not yet started) would otherwise render as a wall of
-          // shut drawers, so the first day stands in.
-          defaultOpen={statuses[i] === 'today' || (todayIndex === -1 && i === 0)}
-        />
-      ))}
-
-      {parsed.sections.map((section) => (
-        <section key={section.id} id={section.id} style={cardStyle}>
-          <div style={{ ...labelStyle, marginBottom: 'var(--s3)', paddingBottom: 'var(--s2)', borderBottom: '1px solid var(--rule)' }}>{section.heading}</div>
-          <Markdown md={section.markdown} />
-        </section>
-      ))}
     </div>
   )
 }
