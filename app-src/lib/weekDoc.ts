@@ -190,9 +190,18 @@ export function dayState(state: Record<string, DayState>, key: string | null): D
  *
  * A fork you resolved to "it doesn't happen" is the one row that is neither
  * checked nor outstanding: you answered it, and the answer was no.
+ *
+ * `isDone` is the second way a row can be finished: a row joined to a real
+ * task is done when *the task* is done, however that happened. Without it a
+ * thing you completed from the tasks tab would sit here nagging, which is the
+ * same two-systems problem the checkbox itself has.
  */
 export function carriedOver(
-  days: WeekDay[], state: Record<string, DayState>, today = localToday(),
+  days: WeekDay[], state: Record<string, DayState>,
+  { today = localToday(), isDone }: {
+    today?: string
+    isDone?: (day: WeekDay, row: WeekRow, choice?: string) => boolean
+  } = {},
 ): Carried[] {
   const out: Carried[] = []
   for (const day of days) {
@@ -202,6 +211,7 @@ export function carriedOver(
     for (const row of day.rows) {
       const choice = branches[row.id]
       if (checked.includes(row.id) || rowSkipped(row, choice)) continue
+      if (isDone?.(day, row, choice)) continue
       out.push({ day, row, choice })
     }
   }
@@ -286,6 +296,11 @@ export type Matchable = { title: string; date: string }
  * hour you work on something, and working on Saturday on a thing due Tuesday
  * is the normal case — so dates never disqualify a row, they only add
  * confidence, and the threshold rises to pay for it.
+ *
+ * Completed tasks are in scope — a row has to keep finding its task *after*
+ * you tick it, or the join would evaporate at the moment it matters. They lose
+ * ties, though: two rows named the same way mean last week's finished one and
+ * this week's open one, and the open one is the one you are looking at.
  */
 export function matchTask(
   target: Matchable,
@@ -301,9 +316,30 @@ export function matchTask(
     const have = new Set(tokens(task.title))
     const hits = want.filter((t) => have.has(t)).length
     const score = hits / want.length + (task.due_date === target.date ? 0.15 : 0)
-    if (score >= threshold && (!best || score > best.score)) best = { task, score }
+    if (score < threshold) continue
+    const better = !best
+      || score > best.score
+      || (score === best.score && !task.completed_at && Boolean(best.task.completed_at))
+    if (better) best = { task, score }
   }
   return best?.task ?? null
+}
+
+/**
+ * The task behind one row of the schedule.
+ *
+ * The join lives here rather than in the component because three places need
+ * the same answer to the same question — the row renders it, the checkbox
+ * writes through it, and "carries over" has to know the row is finished — and
+ * three fuzzy matchers tuned separately would drift.
+ */
+export function rowTask(
+  row: WeekRow, date: string | null, tasks: MatchableTask[], choice?: string,
+): MatchableTask | null {
+  if (!date) return null
+  return matchTask({ title: rowTitle(row, choice), date }, tasks, {
+    requireDate: false, threshold: 0.8, minTokens: 2,
+  })
 }
 
 /**

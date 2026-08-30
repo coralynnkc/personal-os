@@ -13,7 +13,8 @@ import { cardStyle, labelStyle } from '../jobs/ui'
  *
  * Read-only on purpose. The document proposes; `tasks` stays the system of
  * record, and creating the missing row from here is the next step, not this
- * one.
+ * one. (The schedule's checkboxes *do* write through to the task — a deadline
+ * is a date rather than an hour, so there is no gesture here to write with.)
  */
 export default function DeadlineStrip({
   deadlines, tasks,
@@ -46,16 +47,19 @@ export default function DeadlineStrip({
               </span>
               <span style={{ fontSize: 13, color: 'var(--ivory)', minWidth: 0, overflowWrap: 'anywhere' }}>{d.title}</span>
               {task ? (
+                // The task list now includes finished tasks, so a deadline can
+                // say the one thing it never could: that it is already done.
                 <Link
                   href="/tasks"
-                  title={`Tracked as “${task.title}”`}
+                  title={`${task.completed_at ? 'Done' : 'Tracked'} as “${task.title}”`}
                   style={{
                     marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 10,
                     letterSpacing: '0.16em', textTransform: 'uppercase',
-                    color: 'var(--slate)', textDecoration: 'none', whiteSpace: 'nowrap',
+                    color: task.completed_at ? 'var(--ok)' : 'var(--slate)',
+                    textDecoration: 'none', whiteSpace: 'nowrap',
                   }}
                 >
-                  tracked
+                  {task.completed_at ? 'done' : 'tracked'}
                 </Link>
               ) : (
                 <span

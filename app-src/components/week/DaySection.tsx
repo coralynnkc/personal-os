@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import Markdown, { inline } from '@/lib/markdown'
 import {
-  chosenArm, clock, committedMinutes, dayKey, dayTitle, entityCode, longHours, matchTask,
-  meridiem, overlaps, rowEntity, rowTitle, rowWhat,
+  chosenArm, clock, committedMinutes, dayKey, dayTitle, entityCode, longHours,
+  meridiem, overlaps, rowEntity, rowTask, rowWhat,
   type ArmId, type DayState, type DayStatus, type Entity, type MatchableTask, type WeekDay,
   type WeekRow,
 } from '@/lib/weekDoc'
@@ -13,13 +13,20 @@ import StartFocusButton from '../pomodoro/StartFocusButton'
 import { cardStyle, Empty, RegionHead } from '../jobs/ui'
 
 type Choose = (row: WeekRow, arm: ArmId | null) => void
+/**
+ * The matched task rides along with the tick. The join is computed here, where
+ * the row is drawn, and the writer needs it to complete the task in the same
+ * gesture — recomputing it a second time up there would be the same fuzzy
+ * match run twice on the same row.
+ */
+type Toggle = (row: WeekRow, next: boolean, task: MatchableTask | null) => void
 
 function Schedule({
   day, state, onToggle, onChoose, tasks, vocabulary,
 }: {
   day: WeekDay
   state: DayState
-  onToggle: ((row: WeekRow, next: boolean) => void) | null
+  onToggle: Toggle | null
   onChoose: Choose | null
   tasks: MatchableTask[]
   vocabulary: Entity[]
@@ -37,17 +44,17 @@ function Schedule({
         // A row is an hour spent on something, not a due date, so the day it
         // sits on never disqualifies a task — which is why the bar to clear is
         // higher here than it is for a deadline (see `matchTask`).
-        const task = date
-          ? matchTask({ title: rowTitle(row, choice), date }, tasks, {
-              requireDate: false, threshold: 0.8, minTokens: 2,
-            })
-          : null
+        const task = rowTask(row, date, tasks, choice)
         return (
           <Row
             key={row.id}
             row={row}
             clash={clash}
-            done={state.checked.includes(row.id)}
+            // A joined row has one answer to "is this done", and it is the
+            // task's — completing it on the tasks tab has to show up here, and
+            // `notes.week.checked` is only the record for rows that stand
+            // alone. The tick writes both, so the two never disagree.
+            done={task ? Boolean(task.completed_at) : state.checked.includes(row.id)}
             choice={choice}
             onToggle={onToggle}
             onChoose={onChoose}
@@ -100,7 +107,7 @@ function Row({
   clash: boolean
   done: boolean
   choice: string | undefined
-  onToggle: ((row: WeekRow, next: boolean) => void) | null
+  onToggle: Toggle | null
   onChoose: Choose | null
   task: MatchableTask | null
   entity: Entity | null
@@ -133,7 +140,7 @@ function Row({
             data-done={done}
             aria-pressed={done}
             aria-label={`Mark “${label}” ${done ? 'not done' : 'done'}`}
-            onClick={() => onToggle(row, !done)}
+            onClick={() => onToggle(row, !done, task)}
           >
             <Check size={8} strokeWidth={3} />
           </button>
@@ -187,7 +194,11 @@ function Row({
           <span style={{ color: 'var(--coral)' }}>overlaps</span>
         ) : task ? (
           <>
-            <span title={`Tracked as “${task.title}”`}>tracked</span>
+            {/* "tracked" is now a promise about the checkbox, not a footnote:
+                the circle to the left of this row completes that task. */}
+            <span title={`Tracked as “${task.title}” — ticking this row ${done ? 'reopens' : 'completes'} it`}>
+              tracked
+            </span>
             {/* The ▶ rides along free: a row joined to a task can start a focus
                 session against it, and the time lands under the task rather
                 than under nothing. */}
@@ -215,7 +226,7 @@ export default function DaySection({
   day: WeekDay
   status: DayStatus
   state: DayState
-  onToggle: ((row: WeekRow, next: boolean) => void) | null
+  onToggle: Toggle | null
   onChoose: Choose | null
   tasks: MatchableTask[]
   vocabulary: Entity[]
