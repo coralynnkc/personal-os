@@ -164,6 +164,24 @@ export default function WeekClient() {
     }
   }, [state, tasks])
 
+  /**
+   * Joining a row to a task by hand — or saying nothing tracks it (`NO_TASK`),
+   * or handing it back to the matcher (`null`).
+   *
+   * The fuzzy join carries about half the rows and is deliberately shy about
+   * the rest, so the misses need an answer that sticks: a link is written
+   * against the row id in the same `notes.week` the checks and forks live in,
+   * and a re-sync never touches it.
+   */
+  const link = useCallback((date: string, row: WeekRow, taskId: string | null) => {
+    write(date, { rowId: row.id, taskId }, (day) => {
+      const links = { ...day.links }
+      if (taskId === null) delete links[row.id]
+      else links[row.id] = taskId
+      return { ...day, links }
+    })
+  }, [write])
+
   // Answering a fork, or reopening it — `null` is the reopen, and it is a real
   // write rather than a local undo, because the answer lived in the database.
   const choose = useCallback((date: string, row: WeekRow, arm: ArmId | null) => {
@@ -295,6 +313,7 @@ export default function WeekClient() {
           state={dayState(state, selectedKey)}
           onToggle={selectedKey ? (row, next, task) => toggle(selectedKey, row, next, task) : null}
           onChoose={selectedKey ? (row, arm) => choose(selectedKey, row, arm) : null}
+          onLink={selectedKey ? (row, taskId) => link(selectedKey, row, taskId) : null}
           tasks={tasks}
           vocabulary={vocabulary}
         />
@@ -306,8 +325,8 @@ export default function WeekClient() {
               day that is already over. */}
           <CarriesOver
             items={carriedOver(parsed.days, state, {
-              isDone: (d, row, choice) =>
-                Boolean(rowTask(row, dayKey(d), tasks, choice)?.completed_at),
+              isDone: (d, row, choice, rowLink) =>
+                Boolean(rowTask(row, dayKey(d), tasks, choice, rowLink)?.completed_at),
             })}
           />
         </div>

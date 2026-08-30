@@ -5,14 +5,17 @@ import { Check } from 'lucide-react'
 import Markdown, { inline } from '@/lib/markdown'
 import {
   chosenArm, clock, committedMinutes, dayKey, dayTitle, entityCode, longHours,
-  meridiem, overlaps, rowEntity, rowTask, rowWhat,
+  meridiem, overlaps, rowEntity, rowTask, rowTitle, rowWhat,
   type ArmId, type DayState, type DayStatus, type Entity, type MatchableTask, type WeekDay,
   type WeekRow,
 } from '@/lib/weekDoc'
 import StartFocusButton from '../pomodoro/StartFocusButton'
+import TaskPicker from './TaskPicker'
 import { cardStyle, Empty, RegionHead } from '../jobs/ui'
 
 type Choose = (row: WeekRow, arm: ArmId | null) => void
+/** Joining a row to a task by hand — a task id, `NO_TASK`, or null to clear. */
+type Link = (row: WeekRow, taskId: string | null) => void
 /**
  * The matched task rides along with the tick. The join is computed here, where
  * the row is drawn, and the writer needs it to complete the task in the same
@@ -22,16 +25,20 @@ type Choose = (row: WeekRow, arm: ArmId | null) => void
 type Toggle = (row: WeekRow, next: boolean, task: MatchableTask | null) => void
 
 function Schedule({
-  day, state, onToggle, onChoose, tasks, vocabulary,
+  day, state, onToggle, onChoose, onLink, tasks, vocabulary,
 }: {
   day: WeekDay
   state: DayState
   onToggle: Toggle | null
   onChoose: Choose | null
+  onLink: Link | null
   tasks: MatchableTask[]
   vocabulary: Entity[]
 }) {
   const date = dayKey(day)
+  // Which row's picker is open, if any. One at a time, and it lives here
+  // rather than in the row so that opening a second closes the first.
+  const [picking, setPicking] = useState<WeekRow | null>(null)
 
   return (
     <div className="sched">
@@ -43,8 +50,10 @@ function Schedule({
         const clash = day.rows.some((other) => other.id !== row.id && overlaps(row, other))
         // A row is an hour spent on something, not a due date, so the day it
         // sits on never disqualifies a task — which is why the bar to clear is
-        // higher here than it is for a deadline (see `matchTask`).
-        const task = rowTask(row, date, tasks, choice)
+        // higher here than it is for a deadline (see `matchTask`). A link the
+        // week wrote by hand outranks that guess entirely.
+        const link = state.links[row.id]
+        const task = rowTask(row, date, tasks, choice, link)
         return (
           <Row
             key={row.id}
@@ -59,10 +68,23 @@ function Schedule({
             onToggle={onToggle}
             onChoose={onChoose}
             task={task}
+            linked={Boolean(link)}
+            onPick={onLink ? () => setPicking(row) : null}
             entity={rowEntity(row, vocabulary, choice)}
           />
         )
       })}
+      {picking && date && onLink && (
+        <TaskPicker
+          title={rowTitle(picking, state.branches[picking.id])}
+          date={date}
+          tasks={tasks}
+          link={state.links[picking.id]}
+          matched={rowTask(picking, date, tasks, state.branches[picking.id], state.links[picking.id])}
+          onPick={(taskId) => { onLink(picking, taskId); setPicking(null) }}
+          onClose={() => setPicking(null)}
+        />
+      )}
     </div>
   )
 }
@@ -100,8 +122,24 @@ function Fork({ row, onChoose }: { row: WeekRow; onChoose: Choose }) {
   )
 }
 
+/**
+ * The right slot's word, as a control when the day can hold an answer and as
+ * plain text when it can't — a dateless day has nowhere to write a link, the
+ * same reason its check circle stays away.
+ */
+function Tracked({
+  label, title, onPick,
+}: { label: string; title: string; onPick: (() => void) | null }) {
+  if (!onPick) return <span title={title}>{label}</span>
+  return (
+    <button type="button" className="sched-link tap" title={title} onClick={onPick}>
+      {label}
+    </button>
+  )
+}
+
 function Row({
-  row, clash, done, choice, onToggle, onChoose, task, entity,
+  row, clash, done, choice, onToggle, onChoose, task, linked, onPick, entity,
 }: {
   row: WeekRow
   clash: boolean
@@ -110,6 +148,10 @@ function Row({
   onToggle: Toggle | null
   onChoose: Choose | null
   task: MatchableTask | null
+  /** Whether the join was chosen by hand rather than guessed. */
+  linked: boolean
+  /** Opens the picker. Null on a day with nowhere to write the answer. */
+  onPick: (() => void) | null
   entity: Entity | null
 }) {
   const when =
@@ -195,18 +237,38 @@ function Row({
         ) : task ? (
           <>
             {/* "tracked" is now a promise about the checkbox, not a footnote:
-                the circle to the left of this row completes that task. */}
-            <span title={`Tracked as “${task.title}” — ticking this row ${done ? 'reopens' : 'completes'} it`}>
-              tracked
-            </span>
+                the circle to the left of this row completes that task. It is
+                also the way back into the picker — the thing you want when the
+                promise is about the wrong task. */}
+            <Tracked
+              label={linked ? 'linked' : 'tracked'}
+              title={
+                `${linked ? 'Linked to' : 'Tracked as'} “${task.title}” — ticking this row `
+                + `${done ? 'reopens' : 'completes'} it`
+                + (onPick ? '. Click to change.' : '')
+              }
+              onPick={onPick}
+            />
             {/* The ▶ rides along free: a row joined to a task can start a focus
                 session against it, and the time lands under the task rather
                 than under nothing. */}
             <StartFocusButton taskId={task.id} taskTitle={task.title} className="" />
           </>
-        ) : entity ? (
-          <span title={entity.name}>{entityCode(entity).toLowerCase()}</span>
-        ) : null}
+        ) : (
+          <>
+            {entity && <span title={entity.name}>{entityCode(entity).toLowerCase()}</span>}
+            {/* Half the rows never find a task on their own — the titles are
+                written twice by hand and drift — so an unjoined row offers the
+                one gesture that fixes it rather than staying silent. */}
+            {onPick && (
+              <Tracked
+                label="link"
+                title="Choose the task this row is about"
+                onPick={onPick}
+              />
+            )}
+          </>
+        )}
       </span>
     </>
   )
@@ -221,13 +283,14 @@ function Row({
  * spends the whole column on it.
  */
 export default function DaySection({
-  day, status, state, onToggle, onChoose, tasks, vocabulary,
+  day, status, state, onToggle, onChoose, onLink, tasks, vocabulary,
 }: {
   day: WeekDay
   status: DayStatus
   state: DayState
   onToggle: Toggle | null
   onChoose: Choose | null
+  onLink: Link | null
   tasks: MatchableTask[]
   vocabulary: Entity[]
 }) {
@@ -252,7 +315,7 @@ export default function DaySection({
       {day.rows.length > 0
         ? (
           <Schedule
-            day={day} state={state} onToggle={onToggle} onChoose={onChoose}
+            day={day} state={state} onToggle={onToggle} onChoose={onChoose} onLink={onLink}
             tasks={tasks} vocabulary={vocabulary}
           />
         )

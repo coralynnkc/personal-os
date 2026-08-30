@@ -7,6 +7,19 @@
 // a deadline the document states has a real `tasks` row behind it.
 
 import { localToday, daysUntil, type Tone } from './taskDisplay'
+import { rowSkipped, rowTitle } from './taskMatch.mjs'
+
+/**
+ * The join — how a row or a deadline finds the task that tracks it — lives in
+ * `taskMatch.mjs` rather than here, because `scripts/check-week-links.mjs`
+ * has to ask it the same questions from node, which can't load this file.
+ * Re-exported so the rest of the app still has one place to import from.
+ */
+export {
+  chosenArm, matchTask, rowSkipped, rowTask, rowTitle, rowWhat, scoreTask, suggestTasks, tokens,
+  NO_TASK, ROW_MATCH,
+} from './taskMatch.mjs'
+export type { Matchable, MatchOptions, Score, Suggestion } from './taskMatch.d.mts'
 
 /**
  * A fork the document states and the week resolves. `if` is the arm the
@@ -168,12 +181,20 @@ export type Carried = { day: WeekDay; row: WeekRow; choice?: string }
 
 /**
  * Everything the app remembers about one day of the plan: which rows got
- * checked off, and which way each fork went. Both are keyed by row id and both
- * live in `daily_logs.notes.week`, so they travel together.
+ * checked off, which way each fork went, and which task each row was joined to
+ * by hand. All three are keyed by row id and all three live in
+ * `daily_logs.notes.week`, so they travel together.
+ *
+ * `links` holds a task id, or `NO_TASK` for the row you looked at and said
+ * nothing tracks — a row with no entry at all is still the matcher's to guess.
  */
-export type DayState = { checked: string[]; branches: Record<string, string> }
+export type DayState = {
+  checked: string[]
+  branches: Record<string, string>
+  links: Record<string, string>
+}
 
-export const EMPTY_DAY: DayState = { checked: [], branches: {} }
+export const EMPTY_DAY: DayState = { checked: [], branches: {}, links: {} }
 
 export function dayState(state: Record<string, DayState>, key: string | null): DayState {
   return (key && state[key]) || EMPTY_DAY
@@ -200,18 +221,18 @@ export function carriedOver(
   days: WeekDay[], state: Record<string, DayState>,
   { today = localToday(), isDone }: {
     today?: string
-    isDone?: (day: WeekDay, row: WeekRow, choice?: string) => boolean
+    isDone?: (day: WeekDay, row: WeekRow, choice?: string, link?: string) => boolean
   } = {},
 ): Carried[] {
   const out: Carried[] = []
   for (const day of days) {
     if (dayStatus(day, today) !== 'past') continue
-    const { checked, branches } = dayState(state, dayKey(day))
+    const { checked, branches, links } = dayState(state, dayKey(day))
     if (!checked.length) continue
     for (const row of day.rows) {
       const choice = branches[row.id]
       if (checked.includes(row.id) || rowSkipped(row, choice)) continue
-      if (isDone?.(day, row, choice)) continue
+      if (isDone?.(day, row, choice, links[row.id])) continue
       out.push({ day, row, choice })
     }
   }
@@ -233,114 +254,6 @@ export type Entity = {
   metadata?: { archived?: boolean; weekly_hours?: number } | null
 }
 
-const STOP = new Set(['the', 'a', 'an', 'and', 'for', 'of', 'to', 'in', 'is', 'due', 'my'])
-
-function tokens(s: string): string[] {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter((t) => t && !STOP.has(t))
-}
-
-/**
- * A row's title, as opposed to everything else the What cell is carrying.
- *
- * The docs write a row as **the thing** — why it matters, which is prose the
- * author is talking to herself in and no task row will ever contain. Matching
- * on the whole cell drags that commentary into the token set and drowns the
- * three words that identify the work, so the em dash is the cut.
- */
-export function rowTitle(row: WeekRow, choice?: string): string {
-  const plain = rowWhat(row, choice).replace(/[*`_]/g, '').trim()
-  return plain.split(/\s+[\u2014\u2013]\s+/)[0].trim()
-}
-
-/** The arm a day's stored answer picks, or null while the fork is open. */
-export function chosenArm(row: WeekRow, choice: string | undefined): RowArm | null {
-  if (!row.branch || !choice) return null
-  return row.branch.arms.find((a) => a.id === choice) ?? null
-}
-
-/**
- * What the row actually says, once the week has answered it. An unresolved
- * fork still says the whole sentence — the chooser shows the arms separately,
- * and hiding the raw text before there is an answer would be the parser
- * deciding something the author didn't.
- */
-export function rowWhat(row: WeekRow, choice?: string): string {
-  const arm = chosenArm(row, choice)
-  if (!arm) return row.rawWhat
-  return arm.what ?? row.branch!.arms[0].what ?? row.rawWhat
-}
-
-/** Resolved to the arm where the row doesn't happen. */
-export function rowSkipped(row: WeekRow, choice?: string): boolean {
-  return chosenArm(row, choice)?.what === null
-}
-
-/** What `matchTask` needs of either side: a name, and the day it belongs to. */
-export type Matchable = { title: string; date: string }
-
-/**
- * Join something the document says to the `tasks` row that actually tracks it.
- * Titles are written twice by hand and drift ("ACT 420 HW 2" vs "ACT 420
- * Homework 2"), so this is deliberately fuzzy: most of the document's words
- * have to appear in the task, and the due date has to agree if the task has
- * one. The doc proposes; `tasks` stays the system of record, so a wrong match
- * is worse than no match and the threshold sits high.
- *
- * A deadline and a schedule row want the date read differently, which is what
- * the options are for. A deadline *is* a date — a task due a different day is
- * a different deadline, so a disagreement disqualifies. A schedule row is the
- * hour you work on something, and working on Saturday on a thing due Tuesday
- * is the normal case — so dates never disqualify a row, they only add
- * confidence, and the threshold rises to pay for it.
- *
- * Completed tasks are in scope — a row has to keep finding its task *after*
- * you tick it, or the join would evaporate at the moment it matters. They lose
- * ties, though: two rows named the same way mean last week's finished one and
- * this week's open one, and the open one is the one you are looking at.
- */
-export function matchTask(
-  target: Matchable,
-  tasks: MatchableTask[],
-  { requireDate = true, threshold = 0.6, minTokens = 1 } = {},
-): MatchableTask | null {
-  const want = tokens(target.title)
-  if (want.length < minTokens) return null
-
-  let best: { task: MatchableTask; score: number } | null = null
-  for (const task of tasks) {
-    if (requireDate && task.due_date && task.due_date !== target.date) continue
-    const have = new Set(tokens(task.title))
-    const hits = want.filter((t) => have.has(t)).length
-    const score = hits / want.length + (task.due_date === target.date ? 0.15 : 0)
-    if (score < threshold) continue
-    const better = !best
-      || score > best.score
-      || (score === best.score && !task.completed_at && Boolean(best.task.completed_at))
-    if (better) best = { task, score }
-  }
-  return best?.task ?? null
-}
-
-/**
- * The task behind one row of the schedule.
- *
- * The join lives here rather than in the component because three places need
- * the same answer to the same question — the row renders it, the checkbox
- * writes through it, and "carries over" has to know the row is finished — and
- * three fuzzy matchers tuned separately would drift.
- */
-export function rowTask(
-  row: WeekRow, date: string | null, tasks: MatchableTask[], choice?: string,
-): MatchableTask | null {
-  if (!date) return null
-  return matchTask({ title: rowTitle(row, choice), date }, tasks, {
-    requireDate: false, threshold: 0.8, minTokens: 2,
-  })
-}
 
 /**
  * The short name an entity is called by in prose. `entities.name` is written

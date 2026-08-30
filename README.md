@@ -125,6 +125,7 @@ source of truth; nothing in the app writes back to them.
 cd app-src
 node scripts/sync-planning-docs.mjs --dry-run --verbose   # print the parse, write nothing
 node scripts/sync-planning-docs.mjs                       # upsert into Supabase
+node scripts/check-week-links.mjs                         # which rows found a task
 ```
 
 Re-run it after editing a week doc. Parsing happens once, here, and the result
@@ -133,6 +134,28 @@ deadlines pulled out of the intro, and the thematic sections. The parser is
 deliberately lenient — anything it can't classify keeps its raw text and
 renders as written, because these are handwritten documents and dropping a row
 is worse than failing to structure it.
+
+### Rows and tasks
+
+A schedule row that matches a `tasks` row shares its checkbox: ticking it on
+`/week` completes the task, and completing the task completes the row. The
+match is fuzzy and one-directional — **every meaningful word of the row's title
+has to appear in the task's title**, with no stemming, so `HW` and `Homework`
+are a miss. Only the text *before the em dash* is matched, which is the lever:
+push commentary behind a `—` and it stops competing with the name of the work.
+
+`check-week-links.mjs` reports, for the newest synced week, which rows found a
+task and which didn't — naming the exact words that were missing — plus rows
+that can't join at all (an unanswered fork, a day heading with no date, a title
+under two words). It also flags a *weak* link: a match that only cleared the
+bar because the task happened to be due that day, which would tick through to
+work you didn't mean. Read-only, and it reads what was synced rather than the
+file on disk, so it checks what the app will actually see.
+
+```bash
+node scripts/check-week-links.mjs --all    # list the rows that matched too
+node scripts/check-week-links.mjs --json   # machine-readable
+```
 
 The semester docs (`fall26_workload_plan.md`, `assignments_fall26.md`) sync too
 and render at `/week/<slug>`, so the week doc's `../fall26_workload_plan.md`
@@ -195,7 +218,7 @@ app-src/
     week/         # Week tab — day sections, deadline strip, long-form doc view
   lib/            # Supabase client, auth helpers, job-search domain types
     mcp/          # MCP tool definitions and argument validation
-  scripts/        # Maintenance scripts (spreadsheet import, planning-doc sync)
+  scripts/        # Maintenance scripts (spreadsheet import, planning-doc sync + link check)
   supabase/
     migrations/   # DB schema
 design/
