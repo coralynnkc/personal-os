@@ -15,12 +15,12 @@ const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
 function iconButton(active = false): React.CSSProperties {
   return {
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-    padding: '5px 9px', borderRadius: 'var(--radius-xs)', cursor: 'pointer',
-    background: active ? 'var(--accent-dim)' : 'var(--ink-1)',
-    border: `1px solid ${active ? 'var(--accent-border)' : 'var(--glass-border)'}`,
-    color: active ? 'var(--accent)' : 'var(--ink-5)',
-    fontSize: 'var(--text-xs)', ...MONO,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--s1)',
+    padding: '4px var(--s2)', borderRadius: 0, cursor: 'pointer',
+    background: active ? 'var(--champagne)' : 'transparent',
+    border: `1px solid ${active ? 'var(--champagne)' : 'var(--rule)'}`,
+    color: active ? 'var(--ground)' : 'var(--ash)',
+    fontSize: 10, ...MONO,
     transition: 'border-color 0.15s, color 0.15s',
   }
 }
@@ -43,7 +43,7 @@ function DurationField({ label, value, min, max, onCommit }: {
 
   const id = `pomodoro-${label.replace(/\s+/g, '-').toLowerCase()}`
   return (
-    <label htmlFor={id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 'var(--text-sm)', color: 'var(--ink-4)' }}>
+    <label htmlFor={id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 11, color: 'var(--ink-4)' }}>
       {label}
       <input
         id={id}
@@ -55,9 +55,9 @@ function DurationField({ label, value, min, max, onCommit }: {
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
         style={{
-          width: 52, padding: '3px 6px', borderRadius: 'var(--radius-xs)', fontSize: 'var(--text-sm)', ...MONO,
-          background: 'var(--ink-0)', color: 'var(--ink-6)',
-          border: '1px solid var(--glass-border)',
+          width: 52, padding: '2px var(--s1)', borderRadius: 0, fontSize: 11, ...MONO,
+          background: 'transparent', color: 'var(--ivory)',
+          border: '1px solid var(--rule)',
         }}
       />
     </label>
@@ -83,15 +83,14 @@ function Popover() {
       aria-label="Pomodoro timer"
       style={{
         position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 250, zIndex: 200,
-        background: 'var(--glass)', backdropFilter: 'blur(16px)',
+        background: 'var(--tint)',
         border: '1px solid var(--glass-border)', borderRadius: 'var(--radius)',
-        boxShadow: '0 10px 30px oklch(0 0 0 / 0.45)',
         padding: 14, display: 'flex', flexDirection: 'column', gap: 12,
       }}
     >
       {/* Phase + clock */}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: PHASE_COLOR[state.phase] }}>
+        <span style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: PHASE_COLOR[state.phase], ...MONO }}>
           {PHASE_LABEL[state.phase]}
         </span>
         <span style={{ fontSize: 26, color: 'var(--ink-6)', letterSpacing: '0.02em', ...MONO }}>
@@ -100,7 +99,7 @@ function Popover() {
       </div>
 
       {state.taskTitle && (
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-5)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>
+        <div style={{ fontSize: 11, color: 'var(--ink-5)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>
           <span style={{ color: 'var(--accent)', marginRight: 4 }}>▶</span>{state.taskTitle}
         </div>
       )}
@@ -111,13 +110,12 @@ function Popover() {
           <span
             key={i}
             style={{
-              width: 6, height: 6, borderRadius: '50%',
-              background: i < cycleDone ? 'var(--accent)' : 'var(--ink-2)',
-              border: `1px solid ${i < cycleDone ? 'var(--accent-border)' : 'var(--glass-border)'}`,
+              width: 5, height: 5,
+              background: i < cycleDone ? 'var(--champagne)' : 'var(--tint-2)',
             }}
           />
         ))}
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-4)', marginLeft: 2, ...MONO }}>
+        <span style={{ fontSize: 10, color: 'var(--ink-4)', marginLeft: 2, ...MONO }}>
           {cycleDone}/{settings.longBreakEvery} to long break
         </span>
       </div>
@@ -144,7 +142,7 @@ function Popover() {
       </div>
 
       {/* Today */}
-      <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: 10, fontSize: 'var(--text-sm)', color: 'var(--ink-4)' }}>
+      <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: 10, fontSize: 11, color: 'var(--ink-4)' }}>
         <span style={{ color: 'var(--ink-5)' }}>{formatDuration(todayFocusMs)}</span> focused today
         {todayFocusSessions > 0 && `, ${todayFocusSessions} session${todayFocusSessions === 1 ? '' : 's'}`}
       </div>
@@ -155,7 +153,7 @@ function Popover() {
         aria-expanded={showSettings}
         style={{
           background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
-          fontSize: 'var(--text-sm)', color: 'var(--ink-3)',
+          fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)', ...MONO,
         }}
       >
         {showSettings ? '− Settings' : '+ Settings'}
@@ -167,7 +165,7 @@ function Popover() {
           <DurationField label="Short break" value={settings.shortBreakMin} min={1} max={180} onCommit={n => set({ shortBreakMin: n })} />
           <DurationField label="Long break" value={settings.longBreakMin} min={1} max={180} onCommit={n => set({ longBreakMin: n })} />
           <DurationField label="Long break every" value={settings.longBreakEvery} min={1} max={12} onCommit={n => set({ longBreakEvery: n })} />
-          <label htmlFor="pomodoro-chime" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 'var(--text-sm)', color: 'var(--ink-4)' }}>
+          <label htmlFor="pomodoro-chime" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink-4)' }}>
             Chime
             <input
               id="pomodoro-chime"
@@ -223,18 +221,17 @@ export default function PomodoroRail() {
         title={state.taskTitle ?? PHASE_LABEL[state.phase]}
         style={{
           display: 'flex', alignItems: 'center', gap: 6,
-          padding: '4px 9px', borderRadius: 'var(--radius-xs)', cursor: 'pointer',
-          background: idle ? 'transparent' : 'var(--ink-1)',
-          border: `1px solid ${idle ? 'transparent' : 'var(--glass-border)'}`,
-          color: idle ? 'var(--ink-4)' : 'var(--ink-6)',
-          fontSize: 'var(--text-sm)', letterSpacing: '0.05em', ...MONO,
+          padding: 0, borderRadius: 0, cursor: 'pointer',
+          background: 'transparent', border: 0,
+          color: idle ? 'var(--slate)' : 'var(--ivory)',
+          fontSize: 11, letterSpacing: '0.05em', ...MONO,
           transition: 'border-color 0.15s, color 0.15s',
         }}
       >
         {!idle && (
           <span
             style={{
-              width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0,
+              width: 5, height: 5, background: color, flexShrink: 0,
               // A steady dot means paused; only a running clock pulses.
               animation: running ? 'pomodoro-pulse 2s ease-in-out infinite' : undefined,
             }}

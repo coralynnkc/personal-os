@@ -32,24 +32,25 @@ function Row({ row, clash }: { row: WeekRow; clash: boolean }) {
 
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '108px 1fr', gap: 12,
-      alignItems: 'baseline', padding: '6px 10px',
-      borderRadius: 'var(--radius-sm)',
-      background: row.meeting ? 'var(--accent-dim)' : 'transparent',
-      borderLeft: `2px solid ${clash ? 'var(--danger)' : row.meeting ? 'var(--accent-border)' : 'transparent'}`,
+      display: 'grid', gridTemplateColumns: '104px minmax(0, 1fr)', gap: 'var(--s3)',
+      alignItems: 'baseline', padding: 'var(--s3) var(--s3) var(--s3) 0',
+      borderBottom: '1px solid var(--rule-2)',
+      borderLeft: `1px solid ${row.meeting ? 'var(--champagne)' : 'transparent'}`,
+      paddingLeft: row.meeting ? 'var(--s3)' : 0,
     }}>
       <span style={{
-        fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)',
-        color: row.kind === 'timed' ? 'var(--ink-5)' : 'var(--ink-4)',
+        fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.04em',
+        color: row.kind === 'timed' ? 'var(--ash)' : 'var(--slate)',
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {when}
       </span>
-      <span style={{ fontSize: 13, color: row.anchor ? 'var(--ink-6)' : 'var(--ink-5)', lineHeight: 1.5 }}>
+      <span style={{ fontSize: 13, color: row.anchor ? 'var(--ivory)' : 'var(--ash)', lineHeight: 1.5, minWidth: 0 }}>
         <Markdown md={row.rawWhat} compact />
         {clash && (
           <span style={{
-            marginLeft: 8, fontSize: 'var(--text-sm)', color: 'var(--danger)',
+            marginLeft: 'var(--s2)', fontFamily: 'var(--font-mono)', fontSize: 11,
+            letterSpacing: '0.06em', color: 'var(--coral)',
           }}>
             overlaps
           </span>
@@ -81,7 +82,8 @@ export default function DaySection({
       id={day.id}
       style={{
         ...cardStyle,
-        borderColor: isToday ? 'var(--accent-border)' : 'var(--glass-border)',
+        borderLeft: isToday ? '1px solid var(--champagne)' : 0,
+        paddingLeft: isToday ? 'var(--s4)' : 0,
         scrollMarginTop: 64,
       }}
     >
@@ -89,34 +91,37 @@ export default function DaySection({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         style={{
-          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-          padding: '10px 14px', background: 'transparent', border: 0,
-          borderBottom: open ? '1px solid var(--glass-border)' : 0,
+          display: 'flex', alignItems: 'baseline', gap: 'var(--s3)', width: '100%',
+          padding: 'var(--s2) 0', background: 'transparent', border: 0,
+          borderBottom: '1px solid var(--rule)',
           cursor: 'pointer', textAlign: 'left',
         }}
       >
         <Chevron size={14} color="var(--ink-4)" aria-hidden />
         <span style={{
-          fontSize: 14, fontWeight: 600,
-          color: isToday ? 'var(--accent)' : status === 'past' ? 'var(--ink-4)' : 'var(--ink-6)',
+          fontSize: 14, fontWeight: 400, letterSpacing: '0.04em',
+          color: isToday ? 'var(--champagne)' : status === 'past' ? 'var(--slate)' : 'var(--ivory)',
         }}>
           {day.heading}
         </span>
         {isToday && (
-          <span className="chip" style={{ color: 'var(--accent)', background: 'var(--accent-dim)' }}>
+          <span className="mono" style={{
+            fontSize: 10, letterSpacing: '0.16em',
+            textTransform: 'uppercase', color: 'var(--champagne)',
+          }}>
             today
           </span>
         )}
-        <span className="meta" style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
+        <span style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--s3)', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--slate)' }}>
           {day.rows.length > 0 && <span>{day.rows.length} rows</span>}
           <span>{formatHours(minutes)}</span>
         </span>
       </button>
 
       {open && (
-        <div style={{ padding: '10px 14px 14px' }}>
+        <div style={{ padding: 'var(--s3) 0 var(--s4)' }}>
           {day.rows.length > 0 ? <Schedule day={day} /> : (
-            <div style={{ fontSize: 13, color: 'var(--ink-3)', fontStyle: 'italic', padding: '2px 10px' }}>
+            <div style={{ fontSize: 13, color: 'var(--slate)', padding: 'var(--s2) 0' }}>
               Nothing scheduled.
             </div>
           )}
@@ -126,17 +131,18 @@ export default function DaySection({
               // The prose is the *why* — why notes come before quizzes, why
               // Thursday morning is protected. It is never chopped into
               // fields; a future day just doesn't lead with it.
-              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--glass-border)' }}>
+              <div style={{ marginTop: 'var(--s4)', paddingTop: 'var(--s4)', borderTop: '1px solid var(--rule)' }}>
                 <Markdown md={day.prose} />
               </div>
             ) : (
               <button
                 onClick={() => setShowProse(true)}
                 style={{
-                  marginTop: 10, fontSize: 'var(--text-sm)', fontWeight: 500,
-                  color: 'var(--ink-4)', background: 'var(--ink-1)',
-                  border: 'none', borderRadius: 999,
-                  padding: '5px 13px', cursor: 'pointer',
+                  marginTop: 'var(--s3)', fontFamily: 'var(--font-mono)', fontSize: 10,
+                  letterSpacing: '0.16em', textTransform: 'uppercase',
+                  color: 'var(--slate)', background: 'transparent',
+                  border: 0, borderBottom: '1px solid var(--rule)', borderRadius: 0,
+                  padding: '0 0 2px', cursor: 'pointer',
                 }}
               >
                 Show the reasoning

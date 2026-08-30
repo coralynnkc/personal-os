@@ -11,13 +11,13 @@ import { labelStyle, Pill } from './ui'
 const fieldStyle = {
   width: '100%', fontSize: 13, color: 'var(--ink-6)',
   background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
-  borderRadius: 'var(--radius-xs)', padding: '6px 8px',
+  borderRadius: 0, padding: '6px 8px',
 } as const
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <span style={{ ...labelStyle, fontSize: 'var(--text-sm)' }}>{label}</span>
+      <span style={{ ...labelStyle, fontSize: 11 }}>{label}</span>
       {children}
     </div>
   )
@@ -54,7 +54,7 @@ export default function AppDrawer({
     <>
       <div
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, background: 'oklch(0.12 0.01 250 / 0.6)', zIndex: 200 }}
+        style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 200 }}
       />
       <aside
         role="dialog"
@@ -63,7 +63,7 @@ export default function AppDrawer({
         style={{
           position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 201,
           width: 'min(460px, 100vw)', overflowY: 'auto',
-          background: 'oklch(0.14 0.012 250)',
+          background: 'var(--tint)',
           borderLeft: '1px solid var(--glass-border)',
           display: 'flex', flexDirection: 'column',
         }}
@@ -72,7 +72,7 @@ export default function AppDrawer({
           position: 'sticky', top: 0, zIndex: 1,
           display: 'flex', alignItems: 'flex-start', gap: 12,
           padding: '14px 16px', borderBottom: '1px solid var(--glass-border)',
-          background: 'oklch(0.14 0.012 250)',
+          background: 'var(--tint)',
         }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 15, color: 'var(--ink-6)', fontWeight: 500 }}>{app.company_name}</div>
@@ -164,7 +164,7 @@ export default function AppDrawer({
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Open portal"
-                  style={{ flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 8px', color: 'var(--accent)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-xs)' }}
+                  style={{ flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 8px', color: 'var(--accent)', border: '1px solid var(--accent-border)', borderRadius: 0 }}
                 >
                   <ExternalLink size={13} />
                 </a>
@@ -192,16 +192,16 @@ export default function AppDrawer({
 
         {/* Joined research from the linked company entity */}
         <div style={{ borderTop: '1px solid var(--glass-border)', padding: 16 }}>
-          <div className="panel-title" style={{ marginBottom: 12 }}>
+          <div style={{ ...labelStyle, marginBottom: 10 }}>
             Research {app.entity ? `· ${app.entity.name}` : ''}
           </div>
 
           {!app.entity ? (
-            <div style={{ fontSize: 13, color: 'var(--ink-3)', fontStyle: 'italic' }}>
+            <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
               Not linked to a company in the research library.
             </div>
           ) : !hasResearch ? (
-            <div style={{ fontSize: 13, color: 'var(--ink-3)', fontStyle: 'italic' }}>
+            <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
               Linked, but no research fields imported.
             </div>
           ) : (
@@ -213,7 +213,7 @@ export default function AppDrawer({
                 const isLink = f.key === 'apply_url'
                 return (
                   <div key={f.key}>
-                    <div style={{ ...labelStyle, fontSize: 'var(--text-sm)', marginBottom: 2 }}>{f.label}</div>
+                    <div style={{ ...labelStyle, fontSize: 11, marginBottom: 2 }}>{f.label}</div>
                     {isLink ? (
                       <a
                         href={toHref(text)}
@@ -237,9 +237,9 @@ export default function AppDrawer({
           <button
             onClick={onDelete}
             style={{
-              cursor: 'pointer', fontSize: 'var(--text-base)', color: 'var(--danger)',
+              cursor: 'pointer', fontSize: 12, color: 'var(--danger)',
               background: 'transparent', border: '1px solid var(--danger)',
-              borderRadius: 'var(--radius-xs)', padding: '5px 10px',
+              borderRadius: 0, padding: '5px 10px',
             }}
           >
             Remove from pipeline

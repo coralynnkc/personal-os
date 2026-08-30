@@ -44,8 +44,8 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 280 }}>
-      <div style={{ fontSize: 'var(--text-lg)', fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink-6)', marginBottom: 10 }}>
-        Personal OS
+      <div className="display" style={{ fontSize: 40, color: 'var(--ivory)', marginBottom: 'var(--s2)' }}>
+        personal os
       </div>
       <input
         autoFocus
@@ -53,27 +53,28 @@ function LoginForm() {
         name="password"
         placeholder="Password"
         style={{
-          background: 'var(--ink-1)',
-          border: '1px solid var(--glass-border)',
-          borderRadius: 'var(--radius-sm)',
-          color: 'var(--ink-6)',
+          background: 'transparent',
+          border: 0,
+          borderBottom: '1px solid var(--rule)',
+          borderRadius: 0,
+          color: 'var(--ivory)',
           fontSize: 14,
-          padding: '10px 12px',
+          padding: 'var(--s2) 0',
           outline: 'none',
         }}
       />
-      {error && <div style={{ fontSize: 'var(--text-sm)', color: 'var(--danger)' }}>{error}</div>}
+      {error && <div style={{ fontSize: 12, color: 'var(--coral)' }}>{error}</div>}
       <button
         type="submit"
         disabled={loading}
         style={{
-          background: 'var(--accent)',
-          color: 'var(--ink-0)',
+          background: 'var(--champagne)',
+          color: 'var(--ground)',
           border: 'none',
-          borderRadius: 'var(--radius-sm)',
-          padding: '10px 0',
+          borderRadius: 0,
+          padding: 'var(--s2) 0',
           fontSize: 13,
-          fontWeight: 600,
+          letterSpacing: '0.06em',
           cursor: loading ? 'wait' : 'pointer',
           opacity: loading ? 0.7 : 1,
         }}
@@ -86,9 +87,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    // The rail is 54px and sticky above this, so centring against the full
-    // viewport pushed the form that far below the optical centre.
-    <div style={{ minHeight: 'calc(100vh - 54px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <Suspense>
         <LoginForm />
       </Suspense>

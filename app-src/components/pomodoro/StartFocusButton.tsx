@@ -24,24 +24,18 @@ export default function StartFocusButton({ taskId, taskTitle, size = 16 }: {
       }}
       aria-label={`Start a focus session on ${taskTitle}`}
       title={active && running ? 'Focusing on this — click to restart' : 'Start a focus session'}
+      className="ghost-action"
       style={{
         flexShrink: 0,
-        width: size + 6, height: size + 6,
+        width: size + 4, height: size + 4,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 'var(--radius-xs)', cursor: 'pointer', padding: 0,
-        background: active ? 'var(--accent-dim)' : 'transparent',
-        border: `1px solid ${active ? 'var(--accent-border)' : 'transparent'}`,
-        color: active ? 'var(--accent)' : 'var(--ink-3)',
-        transition: 'color 0.12s, background 0.12s, border-color 0.12s',
+        borderRadius: 0, cursor: 'pointer', padding: 0,
+        background: 'transparent', border: 0,
+        color: active ? 'var(--champagne)' : 'var(--slate)',
+        transition: 'color 0.12s',
       }}
-      onMouseEnter={e => {
-        e.currentTarget.style.color = 'var(--accent)'
-        e.currentTarget.style.background = 'var(--accent-dim)'
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.color = active ? 'var(--accent)' : 'var(--ink-3)'
-        e.currentTarget.style.background = active ? 'var(--accent-dim)' : 'transparent'
-      }}
+      onMouseEnter={e => { e.currentTarget.style.color = 'var(--ivory)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = active ? 'var(--champagne)' : 'var(--slate)' }}
     >
       <Play size={size - 6} fill="currentColor" />
     </button>

@@ -32,18 +32,25 @@ export const PIPELINE_ORDER: Status[] = [
 // columns don't compete with three dead ones for horizontal space.
 export const CLOSED_STATUSES: Status[] = ['rejected', 'ghosted', 'no_roles']
 
+/**
+ * A status is not a deadline, and colour in this app only ever means time —
+ * so the ladder is read in weight, not hue. The one exception is an offer:
+ * there is exactly one accent, and if anything on this board earns it, it is
+ * the row you were doing all of this for — which gets rose, the mark this
+ * app uses for the things that are yours rather than merely scheduled.
+ */
 export const STATUS_COLOR: Record<Status, string> = {
-  researching: 'var(--ink-4)',
-  not_open:    'var(--ink-4)',
-  open:        'var(--warn)',
-  applied:     'var(--accent)',
-  oa:          'oklch(0.72 0.16 180)',
-  phone:       'oklch(0.72 0.18 300)',
-  onsite:      'oklch(0.78 0.17 45)',
-  offer:       'var(--ok)',
-  rejected:    'var(--danger)',
-  ghosted:     'var(--ink-3)',
-  no_roles:    'var(--ink-3)',
+  researching: 'var(--slate)',
+  not_open:    'var(--slate)',
+  open:        'var(--ash)',
+  applied:     'var(--ash)',
+  oa:          'var(--ash)',
+  phone:       'var(--ash)',
+  onsite:      'var(--ivory)',
+  offer:       'var(--rose)',
+  rejected:    'var(--slate)',
+  ghosted:     'var(--slate)',
+  no_roles:    'var(--slate)',
 }
 
 export const WAVES = ['Wave 1', 'Wave 2', 'Wave 3', 'Rolling', 'GitHub'] as const

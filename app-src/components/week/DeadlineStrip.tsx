@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { TONE_COLOR } from '@/lib/taskDisplay'
 import { deadlineTone, matchTask, shortDate, type Deadline, type MatchableTask } from '@/lib/weekDoc'
-import { cardStyle } from '../jobs/ui'
+import { cardStyle, labelStyle } from '../jobs/ui'
 
 /**
  * Every deadline in the week doc is written twice — once as prose here, once
@@ -21,9 +21,11 @@ export default function DeadlineStrip({
   if (!deadlines.length) return null
 
   return (
-    <div style={{ ...cardStyle, padding: '12px 16px' }}>
-      <div className="panel-title" style={{ marginBottom: 12 }}>Deadlines behind this week</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+    <div style={cardStyle}>
+      <div style={{ ...labelStyle, marginBottom: 'var(--s3)', paddingBottom: 'var(--s2)', borderBottom: '1px solid var(--rule)' }}>
+        Deadlines behind this week
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
         {deadlines.map((d) => {
           const task = matchTask(d, tasks)
           const color = TONE_COLOR[deadlineTone(d.date)]
@@ -31,25 +33,26 @@ export default function DeadlineStrip({
             <div
               key={d.id}
               style={{
-                display: 'flex', alignItems: 'baseline', gap: 10,
-                padding: '9px 13px', borderRadius: 'var(--radius-sm)',
-                // The urgency colour tints the fill instead of ringing the row;
-                // three outlined boxes in a row read as a form, not a warning.
-                background: `color-mix(in oklch, ${color} 11%, var(--ink-1))`,
-                minWidth: 0,
+                display: 'flex', alignItems: 'baseline', gap: 'var(--s3)',
+                padding: 'var(--s2) 0', borderBottom: '1px solid var(--rule-2)',
+                minWidth: 0, flexWrap: 'wrap',
               }}
             >
-              <span className="meta" style={{ color, whiteSpace: 'nowrap' }}>
+              <span style={{
+                fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em',
+                color, whiteSpace: 'nowrap',
+              }}>
                 {shortDate(d.date)}{d.time ? ` · ${d.time}` : ''}
               </span>
-              <span style={{ fontSize: 'var(--text-base)', color: 'var(--ink-6)' }}>{d.title}</span>
+              <span style={{ fontSize: 13, color: 'var(--ivory)', minWidth: 0, overflowWrap: 'anywhere' }}>{d.title}</span>
               {task ? (
                 <Link
                   href="/tasks"
                   title={`Tracked as “${task.title}”`}
                   style={{
-                    fontSize: 'var(--text-sm)',
-                    color: 'var(--ok)', textDecoration: 'none', whiteSpace: 'nowrap',
+                    marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 10,
+                    letterSpacing: '0.16em', textTransform: 'uppercase',
+                    color: 'var(--slate)', textDecoration: 'none', whiteSpace: 'nowrap',
                   }}
                 >
                   tracked
@@ -58,8 +61,9 @@ export default function DeadlineStrip({
                 <span
                   title="Stated in the week doc, with no matching task row"
                   style={{
-                    fontSize: 'var(--text-sm)',
-                    color: 'var(--warn)', whiteSpace: 'nowrap',
+                    marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 10,
+                    letterSpacing: '0.16em', textTransform: 'uppercase',
+                    color: 'var(--amber)', whiteSpace: 'nowrap',
                   }}
                 >
                   not tracked

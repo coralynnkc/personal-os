@@ -7,7 +7,7 @@ import { USER_TZ } from '@/lib/dateKey'
 import StartFocusButton from '@/components/pomodoro/StartFocusButton'
 import { ErrorRow } from '@/components/jobs/ui'
 import {
-  localToday, dueLabel, tagFrequency, displayTags, tagColor, TONE_COLOR,
+  localToday, dueLabel, tagFrequency, displayTags, TONE_COLOR,
   EMPTY_TAG_FREQ, type TagFreq,
 } from '@/lib/taskDisplay'
 
@@ -74,52 +74,47 @@ const URGENCY_LABELS: Record<Urgency, string> = {
   someday: 'Someday',
 }
 
+// A column heading names a horizon; the individual row is where lateness gets
+// to speak, and it says it in one place — the date. So the heads stay quiet.
 const URGENCY_COLORS: Record<Urgency, string> = {
-  today: 'var(--danger)',
-  week: 'var(--warn)',
-  month: 'var(--accent)',
-  someday: 'var(--ink-4)',
+  today: 'var(--ash)',
+  week: 'var(--ash)',
+  month: 'var(--ash)',
+  someday: 'var(--slate)',
 }
 
+/** A board column is a run of rows under a heading — no fill, no border. */
 function cardShell(extra?: React.CSSProperties): React.CSSProperties {
   return {
-    background: 'var(--glass)',
-    border: '1px solid var(--glass-border)',
-    borderRadius: 'var(--radius)',
-    backdropFilter: 'blur(16px)',
-    overflow: 'hidden',
+    background: 'transparent',
+    border: 0,
+    borderRadius: 0,
+    minWidth: 0,
     ...extra,
   }
 }
 
 /**
- * A chip is a soft fill on a pill, never an outline. A card here carries a
- * date chip and up to two tags on top of its own edge and a checkbox — at
- * thirty cards on screen, outlining each one turned the board into a grid of
- * boxes inside boxes. Colour and shape carry it without the stroke.
- *
- * Callers pair this with `className="chip"`, which owns size, radius and
- * padding; only colour varies here.
+ * The fill went with the pill. A row is text with a mark in the margin, and a
+ * date that carries its own colour doesn't also need a shape — `.chip` is now
+ * bare inline text, so only the colour varies here.
  */
 function chip(color: string): React.CSSProperties {
-  return {
-    color,
-    background: `color-mix(in oklch, ${color} 15%, transparent)`,
-  }
+  return { color }
 }
 
 /**
- * Tags read as words, not labels — no uppercase, no wide tracking. The colour
- * is what does the sorting work, so the text can stay quiet.
+ * Tags read as words, not labels — no uppercase, no wide tracking, and since
+ * the ten-hue palette was retired, no colour either. Rarest-first ordering is
+ * what identifies a task; the hue was only ever decoration.
  */
-function tagChip(tag: string): React.CSSProperties {
-  const c = tagColor(tag)
-  return { color: c.fg, background: c.bg }
+function tagChip(): React.CSSProperties {
+  return { color: 'var(--slate)', fontSize: 'var(--text-sm)' }
 }
 
 /** Kept as a distinct name because the date chip is the one that changes tone. */
 function dateChip(color: string): React.CSSProperties {
-  return chip(color)
+  return { ...chip(color), fontFamily: 'var(--font-mono)' }
 }
 
 /**
@@ -144,10 +139,10 @@ function TaskMeta({ task, hideDue }: { task: Task; hideDue?: string }) {
     <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', paddingLeft: 32 }}>
       {due && <span className="chip" style={dateChip(TONE_COLOR[due.tone])}>{due.text}</span>}
       {shown.map(t => (
-        <span key={t} className="chip" style={tagChip(t)}>{t}</span>
+        <span key={t} className="chip" style={tagChip()}>{t}</span>
       ))}
       {hidden.length > 0 && (
-        <span className="chip" style={chip('var(--ink-3)')} title={hidden.join(', ')}>
+        <span className="chip" style={chip('var(--slate)')} title={hidden.join(', ')}>
           +{hidden.length}
         </span>
       )}
@@ -164,35 +159,31 @@ function TaskCard({ task, onClick, onComplete, hideDue }: {
 }) {
   return (
     <div
-      className="tile"
+      className="row-hover row-line hoverable"
       onClick={onClick}
       style={{
-        padding: '11px 13px',
+        padding: 'var(--s2) 0',
         cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
-        gap: 7,
+        gap: 2,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--s3)' }}>
         <button
-          className="tap"
+          className="check-circle"
           onClick={e => { e.stopPropagation(); onComplete(task.id) }}
-          style={{
-            width: 23, height: 23, borderRadius: 999, border: '1.5px solid var(--ink-3)',
-            background: 'transparent', cursor: 'pointer', flexShrink: 0,
-            padding: 0, marginTop: 1,
-          }}
+          style={{ alignSelf: 'center' }}
           title="Complete task" aria-label="Complete task"
         />
-        <span style={{ fontSize: 'var(--text-base)', color: 'var(--ink-6)', lineHeight: 1.45, flex: 1 }}>
-          {isEffectivelyKey(task) && <span style={{ color: 'var(--accent)', marginRight: 5 }}>★</span>}
+        <span style={{ fontSize: 'var(--text-base)', color: 'var(--ivory)', lineHeight: 1.35, flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+          {isEffectivelyKey(task) && <span style={{ color: 'var(--rose)', fontSize: 10, marginRight: 6 }}>★</span>}
           {task.title}
         </span>
-        {/* Points sit in the gutter as a plain number — they rank the card,
+        {/* Points sit in the gutter as a plain number — they rank the row,
             they don't need a box to do it. */}
         {task.points != null && (
-          <span className="meta" style={{ color: 'var(--ink-4)', flexShrink: 0, marginTop: 2 }}>
+          <span className="meta" style={{ flexShrink: 0 }}>
             {task.points}pt
           </span>
         )}
@@ -216,26 +207,33 @@ function KanbanView({ tasks, onSelect, onComplete }: {
   const tiers: Urgency[] = ['today', 'week', 'month', 'someday']
 
   return (
-    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', overflowX: 'auto', paddingBottom: 8 }}>
-      {tiers.map(tier => {
+    // Columns of entries separated by hairlines — the board is the page, not
+    // four floating boxes on it. Wide content scrolls inside this container.
+    <div style={{ display: 'flex', gap: 'var(--s5)', alignItems: 'flex-start', overflowX: 'auto', paddingBottom: 'var(--s4)' }}>
+      {tiers.map((tier, i) => {
         const tierTasks = open.filter(t => effectiveUrgency(t) === tier)
         return (
-          <div key={tier} style={{ ...cardShell(), flex: '1 1 220px', minWidth: 200 }}>
+          <div key={tier} style={{
+            ...cardShell(),
+            flex: '1 1 220px', minWidth: 200,
+            borderLeft: i > 0 ? '1px solid var(--rule)' : undefined,
+            paddingLeft: i > 0 ? 'var(--s5)' : undefined,
+          }}>
             <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '13px 16px 9px',
+              display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+              paddingBottom: 'var(--s2)', marginBottom: 'var(--s3)',
             }}>
               <span className="section-title" style={{ color: URGENCY_COLORS[tier] }}>
-                {URGENCY_LABELS[tier]}
+                {URGENCY_LABELS[tier].toLowerCase()}
               </span>
-              <span className="meta">{tierTasks.length}</span>
+              <span className="mono" style={{ fontSize: 20, lineHeight: 1, color: 'var(--slate)' }}>{tierTasks.length}</span>
             </div>
-            <div style={{ padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 6, minHeight: 80 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', minHeight: 80 }}>
               {tierTasks.map(t => (
                 <TaskCard key={t.id} task={t} onClick={() => onSelect(t)} onComplete={onComplete} hideDue={tier === 'today' ? 'today' : undefined} />
               ))}
               {tierTasks.length === 0 && (
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)', padding: '4px 4px' }}>Nothing here</div>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--slate)', padding: 'var(--s2) 0' }}>Nothing here</div>
               )}
             </div>
           </div>
@@ -243,20 +241,23 @@ function KanbanView({ tasks, onSelect, onComplete }: {
       })}
 
       {done.length > 0 && (
-        <div style={{ ...cardShell(), flex: '0 0 220px', minWidth: 200 }}>
+        <div style={{
+          ...cardShell(), flex: '0 0 220px', minWidth: 200,
+          borderLeft: '1px solid var(--rule)', paddingLeft: 'var(--s5)',
+        }}>
           <button
             onClick={() => setDoneOpen(v => !v)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-              padding: '13px 16px 9px', background: 'transparent', border: 'none',
-              cursor: 'pointer',
+              display: 'flex', alignItems: 'baseline', gap: 'var(--s2)', width: '100%',
+              paddingBottom: 'var(--s2)', marginBottom: 'var(--s3)',
+              background: 'transparent', border: 0, borderRadius: 0, cursor: 'pointer',
             }}
           >
-            {doneOpen ? <ChevronDown size={14} color="var(--ink-4)" /> : <ChevronRight size={14} color="var(--ink-4)" />}
-            <span className="section-title" style={{ color: 'var(--ok)' }}>
-              Done
+            {doneOpen ? <ChevronDown size={12} color="var(--slate)" /> : <ChevronRight size={12} color="var(--slate)" />}
+            <span className="section-title" style={{ color: 'var(--slate)' }}>
+              done
             </span>
-            <span className="meta" style={{ marginLeft: 'auto' }}>{done.length}</span>
+            <span className="mono" style={{ fontSize: 20, lineHeight: 1, color: 'var(--slate)', marginLeft: 'auto' }}>{done.length}</span>
           </button>
           {doneOpen && (
             <div style={{ padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -346,7 +347,7 @@ function ForecastView({ tasks, onSelect, onComplete }: {
                   {dayLabel(d)}
                 </span>
                 {dayTasks.length > 0 && (
-                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
+                  <span style={{ width: 4, height: 4, background: 'var(--royal)', display: 'inline-block' }} />
                 )}
               </div>
               <div style={{ padding: '6px 6px', display: 'flex', flexDirection: 'column', gap: 4, minHeight: 40 }}>
@@ -356,7 +357,7 @@ function ForecastView({ tasks, onSelect, onComplete }: {
                     onClick={() => onSelect(t)}
                     style={{
                       fontSize: 'var(--text-xs)', color: 'var(--ink-5)', cursor: 'pointer', padding: '2px 4px',
-                      borderRadius: 6, lineHeight: 1.3,
+                      borderRadius: 0, lineHeight: 1.3,
                       display: 'flex', alignItems: 'center', gap: 4,
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--ink-1)')}
@@ -365,7 +366,7 @@ function ForecastView({ tasks, onSelect, onComplete }: {
                     <button
                       onClick={e => { e.stopPropagation(); onComplete(t.id) }}
                       style={{
-                        width: 10, height: 10, borderRadius: 2, border: '1px solid var(--ink-3)',
+                        width: 10, height: 10, borderRadius: 0, border: '1px solid var(--ink-3)',
                         background: 'transparent', cursor: 'pointer', flexShrink: 0,
                       }}
                     />
@@ -444,7 +445,7 @@ function CategoryView({ tasks, entities, onSelect, onComplete }: {
         )
       })}
       {entityIds.length === 0 && (
-        <div style={{ ...cardShell(), padding: '20px 16px', color: 'var(--ink-3)', fontSize: 'var(--text-sm)', fontStyle: 'italic' }}>
+        <div style={{ ...cardShell(), padding: '20px 16px', color: 'var(--ink-3)', fontSize: 'var(--text-sm)' }}>
           No open tasks.
         </div>
       )}
@@ -506,25 +507,25 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
       {/* Backdrop */}
       <div
         onClick={handleClose}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50 }}
+        style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 50 }}
       />
       {/* Drawer */}
       <div style={isMobile ? {
         position: 'fixed', bottom: 0, left: 0, right: 0, top: 'auto',
         maxHeight: '92dvh', borderRadius: '16px 16px 0 0',
-        background: 'var(--glass)', backdropFilter: 'blur(24px)',
+        background: 'var(--tint)',
         borderTop: '1px solid var(--glass-border)',
         zIndex: 51, display: 'flex', flexDirection: 'column',
         overflowY: 'auto',
       } : {
         position: 'fixed', top: 52, right: 0, bottom: 0, width: 380,
-        background: 'var(--glass)', backdropFilter: 'blur(24px)',
+        background: 'var(--tint)',
         borderLeft: '1px solid var(--glass-border)',
         zIndex: 51, display: 'flex', flexDirection: 'column',
         overflowY: 'auto',
       }}>
         {isMobile && (
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--ink-3)', alignSelf: 'center', margin: '12px auto 4px' }} />
+          <div style={{ width: 36, height: 4, borderRadius: 0, background: 'var(--ink-3)', alignSelf: 'center', margin: '12px auto 4px' }} />
         )}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -632,7 +633,7 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
                 {/* Live preview — the colours here are the colours the card will use. */}
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
                   {tagInput.split(',').map(t => t.trim()).filter(Boolean).map(t => (
-                    <span key={t} style={tagChip(t)}>{t}</span>
+                    <span key={t} className="chip" style={tagChip()}>{t}</span>
                   ))}
                 </div>
               </div>
@@ -725,7 +726,7 @@ function ProjectSelect({ entities, value, onChange, onCreated, inputStyle }: {
           disabled={saving || !name.trim()}
           style={{
             padding: '0 10px', borderRadius: 'var(--radius-xs)', border: 'none',
-            background: 'var(--accent)', color: '#000', fontWeight: 600,
+            background: 'var(--champagne)', color: 'var(--ground)',
             fontSize: 'var(--text-sm)', cursor: 'pointer', whiteSpace: 'nowrap',
             opacity: saving || !name.trim() ? 0.6 : 1,
           }}
@@ -811,10 +812,10 @@ function ManageProjectsModal({ onClose, onChange }: {
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60 }} />
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 60 }} />
       <div style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: 400, maxHeight: '70vh', background: 'var(--glass)', backdropFilter: 'blur(24px)',
+        width: 400, maxHeight: '70vh', background: 'var(--tint)',
         border: '1px solid var(--glass-border)', borderRadius: 'var(--radius)',
         zIndex: 61, display: 'flex', flexDirection: 'column',
       }}>
@@ -823,7 +824,7 @@ function ManageProjectsModal({ onClose, onChange }: {
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)' }}><X size={14} /></button>
         </div>
         <div style={{ overflowY: 'auto', padding: '10px 16px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {active.length === 0 && <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)', fontStyle: 'italic', padding: '8px 0' }}>No projects yet.</div>}
+          {active.length === 0 && <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)', padding: '8px 0' }}>No projects yet.</div>}
           {active.map(e => (
             <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0' }}>
               {editingId === e.id ? (
@@ -833,13 +834,13 @@ function ManageProjectsModal({ onClose, onChange }: {
                     onChange={ev => setEditName(ev.target.value)}
                     onKeyDown={ev => { if (ev.key === 'Enter') saveEdit(e.id); if (ev.key === 'Escape') setEditingId(null) }}
                   />
-                  <button onClick={() => saveEdit(e.id)} style={{ fontSize: 'var(--text-sm)', padding: '4px 10px', borderRadius: 'var(--radius-xs)', border: 'none', background: 'var(--accent)', color: '#000', cursor: 'pointer', fontWeight: 600 }}>Save</button>
+                  <button onClick={() => saveEdit(e.id)} style={{ fontSize: 'var(--text-sm)', padding: '4px 10px', borderRadius: 'var(--radius-xs)', border: 'none', background: 'var(--champagne)', color: 'var(--ground)', cursor: 'pointer' }}>Save</button>
                   <button onClick={() => setEditingId(null)} style={{ fontSize: 'var(--text-sm)', padding: '4px 8px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--ink-4)', cursor: 'pointer' }}>✕</button>
                 </>
               ) : (
                 <>
                   <span style={{ flex: 1, fontSize: 'var(--text-base)', color: 'var(--ink-5)' }}>{e.name}</span>
-                  {e.kind && <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', border: '1px solid var(--glass-border)', borderRadius: 6, padding: '1px 5px' }}>{e.kind}</span>}
+                  {e.kind && <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', border: '1px solid var(--glass-border)', borderRadius: 0, padding: '1px 5px' }}>{e.kind}</span>}
                   <button onClick={() => { setEditingId(e.id); setEditName(e.name) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 'var(--text-base)' }} title="Rename" aria-label="Rename">✎</button>
                   <button onClick={() => patch(e.id, { metadata: { archived: true } })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ok)', fontSize: 'var(--text-sm)' }} title="Mark complete" aria-label="Mark complete">✓</button>
                   <button onClick={() => remove(e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Delete" aria-label="Delete"><Trash2 size={12} /></button>
@@ -921,15 +922,15 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60 }} />
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 60 }} />
       <div style={{
         ...sheetStyle,
-        background: 'var(--glass)', backdropFilter: 'blur(24px)',
+        background: 'var(--tint)',
         border: '1px solid var(--glass-border)',
         zIndex: 61, padding: 20, display: 'flex', flexDirection: 'column', gap: 12,
       }}>
         {isMobile && (
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--ink-3)', alignSelf: 'center', marginBottom: 4 }} />
+          <div style={{ width: 36, height: 4, borderRadius: 0, background: 'var(--ink-3)', alignSelf: 'center', marginBottom: 4 }} />
         )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
           <span className="panel-title">
@@ -1004,7 +1005,7 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
           disabled={saving || !title.trim()}
           style={{
             padding: '9px 0', borderRadius: 'var(--radius-xs)', border: 'none',
-            background: 'var(--accent)', color: '#000', fontWeight: 600,
+            background: 'var(--champagne)', color: 'var(--ground)',
             fontSize: 'var(--text-base)', cursor: saving || !title.trim() ? 'not-allowed' : 'pointer',
             opacity: saving || !title.trim() ? 0.6 : 1,
           }}
@@ -1197,7 +1198,7 @@ function TasksInner() {
   ]
 
   return (
-    <div style={{ padding: '16px 20px', position: 'relative' }}>
+    <div style={{ padding: 'var(--s5)', position: 'relative' }}>
       {saveError && (
         <div style={{ marginBottom: 12 }}>
           <ErrorRow
@@ -1211,23 +1212,27 @@ function TasksInner() {
         </div>
       )}
 
-      {/* Header row. Wraps: the view switcher, sort, Projects and New come to
-          573px laid out in one line, which is wider than a phone. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{
-          display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 999, padding: 3,
-        }}>
+      {/* The toolbar is a line of text under a hairline: the view switcher is
+          words with an underline, and every other control is a text button.
+          Nothing here is a box. It still wraps — the four controls came to
+          573px in one line, which is wider than a phone. */}
+      <div style={{
+        display: 'flex', alignItems: 'baseline', gap: 'var(--s5)', flexWrap: 'wrap',
+        marginBottom: 'var(--s5)', paddingBottom: 'var(--s3)',
+        borderBottom: '1px solid var(--rule)',
+      }}>
+        <div style={{ display: 'flex', gap: 'var(--s3)' }}>
           {views.map(v => (
             <button
               key={v.id}
-              className="tap"
               aria-pressed={view === v.id}
               onClick={() => setView(v.id)}
+              className="mono"
               style={{
-                padding: '6px 18px', borderRadius: 999, border: 'none', cursor: 'pointer',
-                fontSize: 'var(--text-base)', fontWeight: 500,
-                color: view === v.id ? 'var(--ink-6)' : 'var(--ink-4)',
-                background: view === v.id ? 'var(--ink-2)' : 'transparent',
+                fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
+                cursor: 'pointer', background: 'none', padding: '0 0 2px', borderRadius: 0,
+                border: 0, borderBottom: `1px solid ${view === v.id ? 'var(--champagne)' : 'transparent'}`,
+                color: view === v.id ? 'var(--ivory)' : 'var(--slate)',
               }}
             >
               {v.label}
@@ -1238,10 +1243,11 @@ function TasksInner() {
           value={sort}
           onChange={e => setSort(e.target.value as Sort)}
           aria-label="Sort tasks"
+          className="mono"
           style={{
-            background: 'var(--ink-1)', border: 'none',
-            borderRadius: 999, color: 'var(--ink-4)', fontSize: 'var(--text-sm)',
-            padding: '7px 12px', cursor: 'pointer', outline: 'none',
+            background: 'transparent', border: 0, borderRadius: 0,
+            color: 'var(--slate)', fontSize: 'var(--text-xs)',
+            padding: 0, cursor: 'pointer', outline: 'none', letterSpacing: '0.06em',
           }}
         >
           <option value="priority">Priority</option>
@@ -1251,30 +1257,27 @@ function TasksInner() {
           <option value="created">Newest</option>
         </select>
         <button
-          className="tap"
           onClick={() => setShowManageProjects(true)}
+          className="quiet-link"
           style={{
-            padding: '7px 15px', borderRadius: 999,
-            border: 'none',
-            background: 'var(--ink-1)', color: 'var(--ink-4)',
-            fontSize: 'var(--text-sm)', fontWeight: 500, cursor: 'pointer',
+            marginLeft: 'auto', padding: 0, borderRadius: 0, border: 0,
+            background: 'transparent', color: 'var(--slate)',
+            fontSize: 'var(--text-sm)', letterSpacing: '0.06em', cursor: 'pointer',
           }}
         >
-          Projects
+          projects
         </button>
         <button
-          className="tap"
           onClick={() => setShowAdd(true)}
           style={{
-            display: 'flex', alignItems: 'center', gap: 5, padding: '7px 15px',
-            borderRadius: 999, border: 'none',
-            background: 'var(--accent-dim)', color: 'var(--accent)',
-            fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 'var(--s1)', padding: 0,
+            borderRadius: 0, border: 0, background: 'transparent', color: 'var(--champagne)',
+            fontSize: 'var(--text-sm)', letterSpacing: '0.06em', cursor: 'pointer',
           }}
         >
-          <Plus size={13} /> New
+          <Plus size={12} /> new task
         </button>
-        {loading && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)', fontStyle: 'italic' }}>Loading…</span>}
+        {loading && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--slate)' }}>Loading…</span>}
       </div>
 
       {/* Content */}
@@ -1326,8 +1329,8 @@ function TasksInner() {
           onClick={() => setShowAdd(true)}
           style={{
             position: 'fixed', bottom: 24, right: 20,
-            width: 52, height: 52, borderRadius: '50%',
-            background: 'var(--accent)', color: '#000',
+            width: 48, height: 48, borderRadius: 0,
+            background: 'var(--champagne)', color: 'var(--ground)',
             border: 'none', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 4px 16px rgba(0,0,0,0.4)',

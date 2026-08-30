@@ -53,7 +53,7 @@ export default function DocClient({ slug }: { slug: string }) {
       {error ? (
         <div style={cardStyle}><ErrorRow message={error} onRetry={load} /></div>
       ) : !doc ? (
-        <div style={{ fontSize: 13, color: 'var(--ink-3)', fontStyle: 'italic' }}>Loading…</div>
+        <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>Loading…</div>
       ) : (
         <article style={{ ...cardStyle, padding: '16px 20px 24px' }}>
           <h1 style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink-6)', marginBottom: 4 }}>

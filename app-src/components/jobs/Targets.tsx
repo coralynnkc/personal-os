@@ -13,8 +13,8 @@ function field(e: CompanyEntity, key: string): string {
 }
 
 const selectStyle = {
-  fontSize: 'var(--text-base)', color: 'var(--ink-6)', background: 'var(--ink-1)',
-  border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-xs)', padding: '5px 10px',
+  fontSize: 12, color: 'var(--ink-6)', background: 'var(--ink-1)',
+  border: '1px solid var(--glass-border)', borderRadius: 0, padding: '4px 8px',
 } as const
 
 /**
@@ -116,7 +116,7 @@ export default function Targets({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, color: 'var(--ink-6)' }}>{c.name}</div>
                   {field(c, 'position_title') && (
-                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-4)', marginTop: 2 }}>{field(c, 'position_title')}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{field(c, 'position_title')}</div>
                   )}
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                     {field(c, 'competitiveness_band') && <Pill color="var(--warn)">{field(c, 'competitiveness_band')}</Pill>}
@@ -132,7 +132,7 @@ export default function Targets({
                     target="_blank"
                     rel="noreferrer"
                     aria-label={`Open ${c.name} careers page`}
-                    className="tap" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', padding: '5px 10px', color: 'var(--ink-4)', border: 'none', background: 'var(--ink-1)', borderRadius: 999 }}
+                    style={{ flexShrink: 0, display: 'flex', alignItems: 'center', padding: '4px 8px', color: 'var(--ink-4)', border: '1px solid var(--glass-border)', borderRadius: 0 }}
                   >
                     <ExternalLink size={12} />
                   </a>
@@ -142,15 +142,15 @@ export default function Targets({
                   onClick={() => onTrack(c)}
                   disabled={isTracked || busyId === c.id}
                   aria-label={isTracked ? `${c.name} is already tracked` : `Track ${c.name}`}
-                  className={isTracked ? undefined : 'tap'}
                   style={{
-                    flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
+                    flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4,
                     cursor: isTracked ? 'default' : 'pointer',
-                    fontSize: 'var(--text-sm)', fontWeight: 500,
+                    fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
                     color: isTracked ? 'var(--ok)' : 'var(--accent)',
-                    background: isTracked ? 'var(--ok-dim)' : 'var(--accent-dim)',
-                    border: 'none',
-                    borderRadius: 999, padding: '5px 11px',
+                    background: isTracked ? 'transparent' : 'var(--accent-dim)',
+                    border: `1px solid ${isTracked ? 'var(--ok)' : 'var(--accent-border)'}`,
+                    borderRadius: 0, padding: '4px 8px',
                   }}
                 >
                   {isTracked ? <><Check size={11} /> Tracked</> : <><Plus size={11} /> Track</>}

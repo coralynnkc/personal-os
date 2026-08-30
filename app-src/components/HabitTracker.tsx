@@ -49,28 +49,23 @@ const STORY_LEVELS: Level[] = [
   { id: 'sp4', label: '≥ 11 pts' },
 ]
 
-const MONTH_COLORS = [
-  '#7EC8E3', '#D4607A', '#4A9B6F', '#9B7FD4',
-  '#E8C832', '#6A35B0', '#C02040', '#E08820',
-  '#8B2040', '#D06020', '#A05530', '#2855A8',
-]
 const MONTH_NAMES = [
   'January','February','March','April','May','June',
   'July','August','September','October','November','December',
 ]
 
-// ─── Color helpers ────────────────────────────────────────────────────────────
+// ─── Level fills ──────────────────────────────────────────────────────────────
 
-function hexToRgb(hex: string): [number, number, number] {
-  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)]
-}
+// The twelve month colours are retired. A month is not a category and a habit
+// is not a hue: a filled cell can only ever say "more of the same thing", so
+// the whole vocabulary is four opacities of one hue — lavender, because a
+// tracker is calm by definition and colour that means time is spent elsewhere.
+const LEVEL_FILL = ['var(--heat-1)', 'var(--heat-2)', 'var(--heat-3)', 'var(--heat-4)']
 
-function getLevelColor(monthHex: string, level: number, totalLevels: number): string {
-  if (level === 0) return ''
-  const [r,g,b] = hexToRgb(monthHex)
-  const alpha = level / totalLevels
-  const mix = (ch: number) => Math.round(255 * (1 - alpha) + ch * alpha)
-  return `rgb(${mix(r)},${mix(g)},${mix(b)})`
+function levelFill(level: number, totalLevels: number): string {
+  if (level <= 0) return ''
+  const step = Math.ceil((level / totalLevels) * LEVEL_FILL.length)
+  return LEVEL_FILL[Math.min(Math.max(step, 1), LEVEL_FILL.length) - 1]
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -150,7 +145,7 @@ function computeDayScore(
   return total / allHabits.length
 }
 
-function ScoreRing({ score, monthColor, size = 36 }: { score: number; monthColor: string; size?: number }) {
+function ScoreRing({ score, size = 36 }: { score: number; size?: number }) {
   const cx = size / 2
   const cy = size / 2
   const strokeWidth = 3
@@ -161,12 +156,12 @@ function ScoreRing({ score, monthColor, size = 36 }: { score: number; monthColor
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={monthColor} strokeWidth={strokeWidth} opacity={0.18} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--lavender)" strokeWidth={strokeWidth} opacity={0.18} />
         {score > 0 && (
           <circle
             cx={cx} cy={cy} r={r}
             fill="none"
-            stroke={monthColor}
+            stroke="var(--lavender)"
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={`${filled} ${circumference - filled}`}
@@ -181,7 +176,7 @@ function ScoreRing({ score, monthColor, size = 36 }: { score: number; monthColor
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--text-xs)',
           fontWeight: 700,
-          color: monthColor,
+          color: 'var(--lavender)',
           lineHeight: 1,
         }}>
           {score.toFixed(1)}
@@ -208,7 +203,6 @@ export default function HabitTracker() {
   const dirtyRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
 
-  const monthColor = MONTH_COLORS[month]
   const today = localDateKey()
 
   // ── Fetch config ────────────────────────────────────────────────────────────
@@ -390,59 +384,65 @@ export default function HabitTracker() {
   if (loading) {
     return (
       <CardShell>
-        <div style={{ padding: '16px 18px', color: 'var(--ink-3)', fontSize: 'var(--text-base)' }}>Loading…</div>
+        <div style={{ padding: 'var(--s4)', color: 'var(--slate)', fontSize: 'var(--text-base)' }}>Loading…</div>
       </CardShell>
     )
   }
 
   return (
     <CardShell>
-      {/* Card header */}
+      {/* The region head sits on the page ground; only the body below it is
+          filled, which is what makes habits the one surface in the dashboard. */}
       <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '14px 18px 10px',
+        display: 'flex', alignItems: 'baseline', gap: 'var(--s3)',
+        marginBottom: 'var(--s4)', minHeight: 22,
       }}>
-        <span className="panel-title">Habits</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Score ring / month dot */}
+        <h2 className="display" style={{ fontSize: 28, margin: 0, color: 'var(--ivory)' }}>habits</h2>
+
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--s4)' }}>
           {view === 'today'
-            ? <ScoreRing score={dayScore} monthColor={monthColor} />
-            : <span style={{ width: 8, height: 8, borderRadius: '50%', background: monthColor, display: 'inline-block' }} />
+            ? <ScoreRing score={dayScore} />
+            : <span style={{ width: 5, height: 5, background: 'var(--lavender)', display: 'inline-block' }} />
           }
-          {/* View tabs */}
-          <div style={{ display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 999, padding: 3 }}>
+
+          <div style={{ display: 'flex', gap: 'var(--s3)' }}>
             {(['today', 'month'] as const).map(v => (
-              <button key={v} onClick={() => setView(v)} className="tap" aria-pressed={view === v} style={{
-                padding: '4px 14px',
-                borderRadius: 999,
-                fontSize: 'var(--text-sm)',
-                fontWeight: 500,
-                color: view === v ? 'var(--ink-6)' : 'var(--ink-4)',
-                background: view === v ? 'var(--ink-2)' : 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                textTransform: 'capitalize',
-              }}>{v}</button>
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                aria-pressed={view === v}
+                className="mono"
+                style={{
+                  fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
+                  color: view === v ? 'var(--ivory)' : 'var(--slate)',
+                  background: 'none', padding: '0 0 2px', borderRadius: 0,
+                  border: 0, borderBottom: `1px solid ${view === v ? 'var(--champagne)' : 'transparent'}`,
+                  cursor: 'pointer',
+                }}
+              >
+                {v}
+              </button>
             ))}
           </div>
-          {/* Add habit button */}
-          <button onClick={() => setShowAddModal(true)} className="tap" style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 26, height: 26, borderRadius: 999,
-            background: 'var(--ink-1)', border: 'none',
-            color: 'var(--ink-4)', cursor: 'pointer',
-          }} title="Add habit" aria-label="Add habit">
-            <Plus size={14} />
+
+          <button
+            onClick={() => setShowAddModal(true)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'none', border: 0, borderRadius: 0, padding: 0,
+              color: 'var(--slate)', cursor: 'pointer',
+            }}
+            title="Add habit" aria-label="Add habit"
+          >
+            <Plus size={13} />
           </button>
         </div>
       </div>
 
       {error && <ErrorRow message={error} onRetry={retry} />}
 
-      {/* Body */}
-      <div style={{ padding: '4px 18px 16px', overflowY: 'auto' }}>
+      {/* The one filled surface in the app. */}
+      <div style={{ background: 'var(--tint)', padding: 'var(--s4)', overflowY: 'auto', minWidth: 0 }}>
         {view === 'today'
           ? <TodayView
               habits={habits}
@@ -451,7 +451,6 @@ export default function HabitTracker() {
               sleepLog={sleepLog}
               storyPoints={storyPoints}
               today={today}
-              monthColor={monthColor}
               onLog={logHabit}
               onSleep={handleSleep}
               onEdit={setEditingHabit}
@@ -463,7 +462,6 @@ export default function HabitTracker() {
               monthStoryPoints={monthStoryPoints}
               month={month}
               year={year}
-              monthColor={monthColor}
               onShift={shiftMonth}
               onLog={logHabit}
             />
@@ -472,14 +470,12 @@ export default function HabitTracker() {
 
       {showAddModal && (
         <HabitModal
-          monthColor={monthColor}
           onSave={(name, levels) => { addHabit(name, levels); setShowAddModal(false) }}
           onClose={() => setShowAddModal(false)}
         />
       )}
       {editingHabit && (
         <HabitModal
-          monthColor={monthColor}
           initial={editingHabit}
           onSave={(name, levels) => { editHabit(editingHabit.id, name, levels); setEditingHabit(null) }}
           onClose={() => setEditingHabit(null)}
@@ -493,9 +489,9 @@ export default function HabitTracker() {
 
 function CardShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <section className="region region-hab" style={{ display: 'flex', flexDirection: 'column' }}>
       {children}
-    </div>
+    </section>
   )
 }
 
@@ -514,7 +510,6 @@ function TodayView({
   sleepLog,
   storyPoints,
   today,
-  monthColor,
   onLog,
   onSleep,
   onEdit,
@@ -526,7 +521,6 @@ function TodayView({
   sleepLog: SleepLog | undefined
   storyPoints: number
   today: string
-  monthColor: string
   onLog: (id: string, date: string, level: number) => void
   onSleep: (event: 'bedtime' | 'waketime') => void
   onEdit: (habit: HabitDef) => void
@@ -542,12 +536,13 @@ function TodayView({
     )
   }
 
-  // Idle level buttons are a bare fill. Nine habit rows of outlined pills was
-  // most of what made this widget feel like a control panel; the selected one
-  // is the only thing that needs to announce itself.
+  // A level is a word in a box the width of the word — no fill until it is
+  // the one chosen, and then it carries the same lavender the grid does.
+  // These are words, so they stay in Jost rather than the number face.
   const habitBtnBase: React.CSSProperties = {
-    fontSize: 'var(--text-sm)', padding: '5px 11px', borderRadius: 999,
-    border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+    fontSize: 'var(--text-sm)', padding: '2px var(--s2)', borderRadius: 0,
+    border: '1px solid var(--rule)', background: 'transparent',
+    color: 'var(--slate)', cursor: 'pointer', whiteSpace: 'nowrap',
   }
 
   return (
@@ -559,37 +554,33 @@ function TodayView({
           const hasWaketime = !!sleepLog?.waketime
           const hours = sleepLog?.hours
           const level = sleepHoursToLevel(hours ?? 0)
-          const color = level > 0 ? getLevelColor(monthColor, level, SLEEP_LEVELS.length) : undefined
           const done = hasBedtime && hasWaketime
 
           return (
-            <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
-              <span style={{ flex: 1, fontSize: 'var(--text-base)', color: done ? color : 'var(--ink-5)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                {done && <span style={{ fontSize: 'var(--text-sm)', color }}>✓</span>}
+            <div key={habit.id} className="hrow">
+              <span style={{ flex: 1, fontSize: 'var(--text-base)', color: done ? 'var(--ivory)' : 'var(--ash)', display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+                {done && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--lavender)' }}>✓</span>}
                 Sleep
               </span>
               {hours !== undefined && hours > 0 && (
-                <span className="chip chip-num" style={{
-                  background: color ? `${color}26` : 'var(--ink-1)',
-                  color: color ?? 'var(--ink-4)',
-                }}>
+                <span className="mono" style={{ fontSize: 'var(--text-xs)', color: 'var(--lavender)' }}>
                   {hours.toFixed(1)}h
                 </span>
               )}
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={() => onSleep('waketime')} className="tap" style={{
                   ...habitBtnBase,
-                  background: hasWaketime ? `${monthColor}26` : 'var(--ink-1)',
-                  color: hasWaketime ? monthColor : 'var(--ink-5)',
-                  fontWeight: hasWaketime ? 600 : 400,
+                  background: hasWaketime ? 'var(--lavender)' : 'transparent',
+                  color: hasWaketime ? 'var(--ground)' : 'var(--slate)',
+                  borderColor: hasWaketime ? 'var(--lavender)' : 'var(--rule)',
                 }}>
                   ☀️ {hasWaketime ? formatTime(sleepLog!.waketime!) : 'Wake'}
                 </button>
                 <button onClick={() => onSleep('bedtime')} className="tap" style={{
                   ...habitBtnBase,
-                  background: hasBedtime ? `${monthColor}26` : 'var(--ink-1)',
-                  color: hasBedtime ? monthColor : 'var(--ink-5)',
-                  fontWeight: hasBedtime ? 600 : 400,
+                  background: hasBedtime ? 'var(--lavender)' : 'transparent',
+                  color: hasBedtime ? 'var(--ground)' : 'var(--slate)',
+                  borderColor: hasBedtime ? 'var(--lavender)' : 'var(--rule)',
                 }}>
                   🌙 {hasBedtime ? formatTime(sleepLog!.bedtime!) : 'Bedtime'}
                 </button>
@@ -601,28 +592,26 @@ function TodayView({
         // ── Story Points row ────────────────────────────────────────────────
         if (habit.id === STORY_ID) {
           const level = storyPointsToLevel(storyPoints)
-          const color = level > 0 ? getLevelColor(monthColor, level, STORY_LEVELS.length) : undefined
           const done = level > 0
 
           return (
-            <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
-              <span style={{ flex: 1, fontSize: 'var(--text-base)', color: done ? color : 'var(--ink-5)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                {done && <span style={{ fontSize: 'var(--text-sm)' }}>✓</span>}
+            <div key={habit.id} className="hrow">
+              <span style={{ flex: 1, fontSize: 'var(--text-base)', color: done ? 'var(--ivory)' : 'var(--ash)', display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+                {done && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--lavender)' }}>✓</span>}
                 Story Points
               </span>
               <div style={{ display: 'flex', gap: 4 }}>
                 {STORY_LEVELS.map((lv, i) => {
                   const lvl = i + 1
-                  const bg = getLevelColor(monthColor, lvl, STORY_LEVELS.length)
                   const active = level === lvl
                   return (
                     <span key={lv.id} style={{
                       ...habitBtnBase,
                       display: 'inline-block',
-                      background: active ? `${bg}` : 'var(--ink-1)',
-                      color: active ? 'var(--ink-0)' : 'var(--ink-4)',
-                      fontWeight: active ? 600 : 400,
-                      opacity: active ? 1 : 0.45,
+                      background: active ? 'var(--lavender)' : 'transparent',
+                      color: active ? 'var(--ground)' : 'var(--slate)',
+                      borderColor: active ? 'var(--lavender)' : 'var(--rule)',
+                      opacity: active ? 1 : 0.6,
                     }}>
                       {lv.label}
                     </span>
@@ -636,23 +625,21 @@ function TodayView({
         // ── User-defined habit row ──────────────────────────────────────────
         const currentLevel = todayLog?.habits?.[habit.id] ?? 0
         const done = currentLevel > 0
-        const activeColor = done ? getLevelColor(monthColor, currentLevel, habit.levels.length) : undefined
 
         return (
           <div
             key={habit.id}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}
+            className="hrow"
             onMouseEnter={() => setHoveredHabit(habit.id)}
             onMouseLeave={() => setHoveredHabit(null)}
           >
-            <span style={{ flex: 1, fontSize: 'var(--text-base)', color: done ? activeColor : 'var(--ink-5)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              {done && <span style={{ fontSize: 'var(--text-sm)' }}>✓</span>}
+            <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-base)', color: done ? 'var(--ivory)' : 'var(--ash)', display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+              {done && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--lavender)' }}>✓</span>}
               {habit.name}
             </span>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               {habit.levels.map((lv, i) => {
                 const lvl = i + 1
-                const bg = getLevelColor(monthColor, lvl, habit.levels.length)
                 const active = currentLevel === lvl
                 return (
                   <button
@@ -661,9 +648,9 @@ function TodayView({
                     className="tap"
                     style={{
                       ...habitBtnBase,
-                      background: active ? bg : 'var(--ink-1)',
-                      color: active ? 'var(--ink-0)' : 'var(--ink-5)',
-                      fontWeight: active ? 600 : 400,
+                      background: active ? 'var(--lavender)' : 'transparent',
+                      color: active ? 'var(--ground)' : 'var(--slate)',
+                      borderColor: active ? 'var(--lavender)' : 'var(--rule)',
                     }}
                   >
                     {lv.label}
@@ -677,7 +664,7 @@ function TodayView({
                 className="tap"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 22, height: 22, borderRadius: 999,
+                  width: 22, height: 22, borderRadius: 0,
                   background: 'transparent', border: 'none',
                   color: 'var(--ink-3)', cursor: 'pointer', fontSize: 'var(--text-sm)',
                 }}
@@ -690,7 +677,7 @@ function TodayView({
                 className="tap"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 22, height: 22, borderRadius: 999,
+                  width: 22, height: 22, borderRadius: 0,
                   background: 'transparent', border: 'none',
                   color: 'var(--ink-3)', cursor: 'pointer',
                 }}
@@ -714,7 +701,6 @@ function MonthView({
   monthStoryPoints,
   month,
   year,
-  monthColor,
   onShift,
   onLog,
 }: {
@@ -723,7 +709,6 @@ function MonthView({
   monthStoryPoints: Record<string, number>
   month: number
   year: number
-  monthColor: string
   onShift: (delta: number) => void
   onLog: (id: string, date: string, level: number) => void
 }) {
@@ -764,7 +749,7 @@ function MonthView({
           <ChevronLeft size={14} />
         </button>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-6)' }}>{MONTH_NAMES[month]}</div>
+          <div style={{ fontSize: 'var(--text-base)', color: 'var(--ivory)' }}>{MONTH_NAMES[month]}</div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--ink-4)' }}>{year}</div>
         </div>
         <button onClick={() => onShift(1)} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', padding: '4px 6px' }}>
@@ -786,8 +771,8 @@ function MonthView({
                 <th key={d} style={{
                   paddingBottom: 4, paddingTop: 4, textAlign: 'center',
                   borderBottom: '1px solid var(--glass-border)',
-                  color: d === todayDay ? monthColor : 'var(--ink-3)',
-                  fontWeight: d === todayDay ? 700 : 400,
+                  color: d === todayDay ? 'var(--lavender)' : 'var(--slate)',
+                  fontWeight: 400,
                   fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)',
                 }}>{d}</th>
               ))}
@@ -805,16 +790,17 @@ function MonthView({
                   </td>
                   {days.map(d => {
                     const level = getCellLevel(habit, d)
-                    const bg = getLevelColor(monthColor, level, habit.levels.length)
+                    const bg = levelFill(level, habit.levels.length)
                     return (
                       <td key={d} style={{ padding: '2px 1px' }}>
                         <button
                           onClick={() => handleCellClick(habit, d)}
                           style={{
                             display: 'block', width: '100%', aspectRatio: '1',
-                            borderRadius: 6,
-                            border: `1px solid ${bg ? 'transparent' : 'oklch(1 0 0 / 0.06)'}`,
-                            background: bg || 'oklch(1 0 0 / 0.03)',
+                            borderRadius: 0, border: 0,
+                            background: bg || 'var(--tint-2)',
+                            outline: d === todayDay ? '1px solid var(--slate)' : undefined,
+                            outlineOffset: 1,
                             cursor: isSpecial ? 'default' : 'pointer',
                           }}
                         />
@@ -835,8 +821,8 @@ function MonthView({
           return (
             <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
               <span title={habit.name} style={{ width: 100, fontSize: 'var(--text-xs)', color: 'var(--ink-4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{habit.name}</span>
-              <div style={{ flex: 1, height: 4, background: 'var(--ink-1)', borderRadius: 2, overflow: 'hidden' }}>
-                <div style={{ height: '100%', borderRadius: 2, background: monthColor, width: `${score * 10}%`, opacity: 0.6 + score * 0.04 }} />
+              <div style={{ flex: 1, height: 2, background: 'var(--tint-2)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', background: 'var(--lavender)', width: `${score * 10}%`, opacity: 0.5 + score * 0.05 }} />
               </div>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--ink-4)', width: 28, textAlign: 'right' }}>{score.toFixed(1)}</span>
             </div>
@@ -850,12 +836,10 @@ function MonthView({
 // ─── Habit Modal (add + edit) ─────────────────────────────────────────────────
 
 function HabitModal({
-  monthColor,
   initial,
   onSave,
   onClose,
 }: {
-  monthColor: string
   initial?: HabitDef
   onSave: (name: string, levels: Level[]) => void
   onClose: () => void
@@ -879,16 +863,15 @@ function HabitModal({
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'oklch(0 0 0 / 0.6)',
+      position: 'fixed', inset: 0, background: 'var(--scrim)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16,
     }}>
       <div style={{
-        background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
-        borderRadius: 'var(--radius)', width: '100%', maxWidth: 360,
-        backdropFilter: 'blur(20px)',
+        background: 'var(--tint)', border: '1px solid var(--rule)',
+        borderRadius: 0, width: '100%', maxWidth: 360,
       }}>
         {/* Color strip */}
-        <div style={{ height: 3, borderRadius: '12px 12px 0 0', background: monthColor }} />
+        <div style={{ height: 1, background: 'var(--lavender)' }} />
 
         <div style={{ padding: '16px 20px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -925,9 +908,9 @@ function HabitModal({
               {levels.map((lv, i) => (
                 <div key={lv.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{
-                    width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                    background: getLevelColor(monthColor, i + 1, levels.length) || 'var(--ink-2)',
-                    border: '1px solid var(--glass-border)',
+                    width: 20, height: 20, borderRadius: 0, flexShrink: 0,
+                    background: levelFill(i + 1, levels.length) || 'var(--tint-2)',
+                    border: 0,
                   }} />
                   <input
                     value={lv.label}
@@ -949,7 +932,7 @@ function HabitModal({
             </div>
             {levels.length < 5 && (
               <button onClick={addLevel} style={{
-                marginTop: 6, fontSize: 'var(--text-xs)', color: monthColor,
+                marginTop: 6, fontSize: 'var(--text-xs)', color: 'var(--lavender)',
                 background: 'none', border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 4,
               }}>
@@ -970,9 +953,9 @@ function HabitModal({
               disabled={!canSubmit}
               style={{
                 flex: 1, padding: '8px', borderRadius: 'var(--radius-sm)',
-                border: 'none', background: canSubmit ? monthColor : 'var(--ink-2)',
-                color: canSubmit ? '#fff' : 'var(--ink-3)', fontSize: 'var(--text-base)',
-                cursor: canSubmit ? 'pointer' : 'not-allowed', fontWeight: 500,
+                border: 0, background: canSubmit ? 'var(--champagne)' : 'var(--tint-2)',
+                color: canSubmit ? 'var(--ground)' : 'var(--slate)', fontSize: 'var(--text-base)',
+                cursor: canSubmit ? 'pointer' : 'not-allowed',
               }}
             >{initial ? 'Save' : 'Add'}</button>
           </div>

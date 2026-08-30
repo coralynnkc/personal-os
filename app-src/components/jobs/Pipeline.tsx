@@ -11,27 +11,29 @@ function Card({ app, today, onOpen }: { app: Application; today: string; onOpen:
   const stale = isStale(app, today)
 
   return (
+    // An entry, not a card: two lines and a hairline. Staleness is the one
+    // thing here that is about time, so it is the one thing with a colour.
     <button
       onClick={onOpen}
-      className="tile"
+      className="hoverable"
       style={{
         width: '100%', textAlign: 'left', cursor: 'pointer',
-        display: 'flex', flexDirection: 'column', gap: 5,
-        padding: '10px 12px',
-        // Only a stale card draws its own edge; the rest lean on the fill.
-        borderColor: stale ? 'var(--warn)' : undefined,
+        display: 'flex', flexDirection: 'column', gap: 2,
+        padding: 'var(--s2) 0', borderRadius: 0,
+        background: 'transparent', border: 0,
+        borderBottom: '1px solid var(--rule-2)',
       }}
     >
-      <span style={{ fontSize: 'var(--text-base)', color: 'var(--ink-6)', lineHeight: 1.4 }}>{app.company_name}</span>
+      <span style={{ fontSize: 14, letterSpacing: '0.02em', color: 'var(--ivory)', lineHeight: 1.3 }}>{app.company_name}</span>
       {app.role_title && (
-        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-4)', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 12, color: 'var(--slate)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {app.role_title}
         </span>
       )}
-      <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
-        {app.wave && <Pill color="var(--ink-4)">{app.wave}</Pill>}
-        {sinceApplied != null && <Pill color="var(--ink-4)">{sinceApplied}d</Pill>}
-        {stale && <Pill color="var(--warn)">stale</Pill>}
+      <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--s3)', flexWrap: 'wrap' }}>
+        {app.wave && <Pill color="var(--slate)">{app.wave}</Pill>}
+        {sinceApplied != null && <Pill color="var(--slate)">{sinceApplied}d</Pill>}
+        {stale && <Pill color="var(--amber)">stale</Pill>}
       </span>
     </button>
   )
@@ -56,19 +58,26 @@ function Board({ apps, today, onOpen }: { apps: Application[]; today: string; on
   return (
     // Horizontal scroll lives on this container so the page body never scrolls
     // sideways with nine columns of pipeline.
-    <div style={{ overflowX: 'auto', padding: 12 }}>
-      <div style={{ display: 'flex', gap: 10, minWidth: 'min-content', alignItems: 'flex-start' }}>
-        {columns.map(col => (
-          <div key={col.key} style={{ width: 190, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, padding: '0 2px' }}>
-              <span className="section-title" style={{ color: col.color }}>{col.label}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums' }}>
+    <div style={{ overflowX: 'auto', padding: 'var(--s4) 0' }}>
+      <div style={{ display: 'flex', gap: 'var(--s5)', minWidth: 'min-content', alignItems: 'flex-start' }}>
+        {columns.map((col, i) => (
+          <div key={col.key} style={{
+            width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column',
+            borderLeft: i > 0 ? '1px solid var(--rule)' : undefined,
+            paddingLeft: i > 0 ? 'var(--s5)' : undefined,
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+              gap: 'var(--s2)', paddingBottom: 'var(--s2)', marginBottom: 'var(--s3)',
+            }}>
+              <span style={{ fontSize: 13, letterSpacing: '0.1em', color: col.color }}>{col.label.toLowerCase()}</span>
+              <span className="mono" style={{ fontSize: 20, lineHeight: 1, color: 'var(--slate)' }}>
                 {col.rows.length}
               </span>
             </div>
             {col.rows.map(a => <Card key={a.id} app={a} today={today} onOpen={() => onOpen(a)} />)}
             {col.rows.length === 0 && (
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-2)', padding: '6px 2px', fontStyle: 'italic' }}>—</div>
+              <div style={{ fontSize: 13, color: 'var(--slate)', padding: 'var(--s2) 0' }}>—</div>
             )}
           </div>
         ))}
@@ -77,8 +86,8 @@ function Board({ apps, today, onOpen }: { apps: Application[]; today: string; on
   )
 }
 
-const cellStyle = { padding: '6px 10px', fontSize: 13, color: 'var(--ink-5)', borderTop: '1px solid var(--glass-border)', verticalAlign: 'middle' } as const
-const inputStyle = { fontSize: 'var(--text-sm)', color: 'var(--ink-6)', background: 'var(--ink-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-xs)', padding: '4px 8px' } as const
+const cellStyle = { padding: 'var(--s2) var(--s3) var(--s2) 0', fontSize: 13, color: 'var(--ash)', borderTop: '1px solid var(--rule-2)', verticalAlign: 'middle' } as const
+const inputStyle = { fontSize: 12, color: 'var(--ivory)', background: 'transparent', border: 0, borderRadius: 0, padding: '2px 0' } as const
 
 /** Table view — the shape you want for bulk edits, which a board is bad at. */
 function Table({
@@ -95,7 +104,7 @@ function Table({
         <thead>
           <tr>
             {['Company', 'Role', 'Wave', 'Status', 'Checked', 'Applied', 'Interview'].map(h => (
-              <th key={h} style={{ ...labelStyle, textAlign: 'left', padding: '10px 10px 8px', fontWeight: 400 }}>{h}</th>
+              <th key={h} style={{ ...labelStyle, textAlign: 'left', padding: '0 var(--s3) var(--s2) 0', fontWeight: 400 }}>{h}</th>
             ))}
           </tr>
         </thead>

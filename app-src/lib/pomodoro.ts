@@ -63,11 +63,13 @@ export const PHASE_LABEL: Record<Phase, string> = {
   long_break: 'Long break',
 }
 
+// A running clock is the one thing in the rail that is about time passing, so
+// focus gets the accent; a break is the absence of that, and reads quieter.
 export const PHASE_COLOR: Record<Phase, string> = {
-  idle: 'var(--ink-4)',
-  focus: 'var(--accent)',
-  short_break: 'var(--ok)',
-  long_break: 'var(--ok)',
+  idle: 'var(--slate)',
+  focus: 'var(--champagne)',
+  short_break: 'var(--violet)',
+  long_break: 'var(--violet)',
 }
 
 const MIN_DURATION_MIN = 1
