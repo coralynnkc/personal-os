@@ -1,0 +1,691 @@
+<meta charset="utf-8" />
+<title>Personal OS Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Italianno&family=Jost:wght@200;300;400;500&family=DM+Mono:wght@300;400;500&display=swap" />
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   personal-os — style guide. Every value below is used; nothing
+   outside it appears in this file.
+
+   COLOUR   ground   #16130F   warm black, the page
+            tint     #1D1914   the one filled surface (habits)
+            ivory    #F2EDE4   primary text
+            ash      #A79E92   secondary
+            slate    #6E675E   quiet meta, contrast floor
+            champagne#E7CFA7   the single accent
+            coral    #E2705A   late  (semantic only)
+            amber    #D8A54A   due   (semantic only)
+
+   TYPE     Italianno    display — the masthead date, four words a page
+            Jost 200/300/400 — everything read as language
+            DM Mono 300/400  — everything read as a number
+
+   SPACE    4 8 12 16 24 32 48 64 — no other value in this file
+   RADIUS   none. The completion circle is the only round thing,
+            because it is a target, not a container.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --ground:    #16130F;
+  --tint:      #1D1914;
+  --tint-2:    #232019;
+  --ivory:     #F2EDE4;
+  --ash:       #A79E92;
+  --slate:     #6E675E;
+  --champagne: #E7CFA7;
+  --coral:     #E2705A;
+  --amber:     #D8A54A;
+
+  --rule:   #F2EDE41A;   /* ivory 10% */
+  --rule-2: #F2EDE40D;   /* ivory  5% */
+
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
+
+  --display: 'Italianno', 'Edwardian Script ITC', 'Apple Chancery', cursive;
+  --sans: 'Jost', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'DM Mono', 'SF Mono', ui-monospace, monospace;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--ground);
+  color: var(--ivory);
+  font-family: var(--sans);
+  font-weight: 300;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+:focus-visible { outline: 1px solid var(--champagne); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* ── rail — asymmetric: wordmark hard left, nav hard right ───── */
+.rail {
+  display: flex; align-items: baseline; gap: var(--s6);
+  padding: var(--s3) var(--s5) var(--s2);
+  border-bottom: 1px solid var(--rule);
+  position: sticky; top: 0; z-index: 20; background: var(--ground);
+}
+.wordmark { font-family: var(--display); font-size: 34px; line-height: 1; }
+.nav { display: flex; gap: var(--s5); margin-left: auto; }
+.nav button { font-size: 13px; letter-spacing: .12em; color: var(--slate); padding-bottom: var(--s1); border-bottom: 1px solid transparent; }
+.nav button:hover { color: var(--ash); }
+.nav button[aria-current] { color: var(--ivory); border-bottom-color: var(--champagne); }
+.status { display: flex; gap: var(--s4); font-family: var(--mono); font-size: 11px; color: var(--slate); letter-spacing: .04em; }
+.status .live { color: var(--ash); display: flex; align-items: center; gap: var(--s2); }
+.status .live::before { content: ''; width: 5px; height: 5px; background: var(--champagne); animation: blink 2.4s ease-in-out infinite; }
+@keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+
+.screen { max-width: 1320px; margin: 0 auto; padding: var(--s6) var(--s5) var(--s8); }
+
+/* ── masthead — the same date on every screen, nothing else ──── */
+.masthead { display: flex; align-items: flex-end; gap: var(--s3); padding-bottom: var(--s3); border-bottom: 1px solid var(--rule); margin-bottom: var(--s6); }
+.masthead .num { font-family: var(--mono); font-weight: 300; font-size: 40px; line-height: .85; color: var(--champagne); letter-spacing: -.04em; }
+.masthead .said { padding-bottom: 1px; }
+.masthead .said h1 { font-family: var(--display); font-size: 30px; font-weight: 400; line-height: .8; }
+.masthead .said .sub { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; color: var(--slate); margin-top: var(--s1); }
+
+/* ── dashboard: three regions, three different treatments ────── */
+.dash { display: grid; gap: 0; grid-template-columns: minmax(0, 1.15fr) minmax(0, .95fr) minmax(0, 1.25fr); }
+.region { min-width: 0; }
+.region.log { padding-right: var(--s5); }
+.region.cal { padding: 0 var(--s5); border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); }
+.region.hab { padding-left: var(--s5); }
+
+.rhead { display: flex; align-items: baseline; gap: var(--s3); margin-bottom: var(--s4); }
+.rhead h2 { font-family: var(--display); font-size: 30px; font-weight: 400; line-height: .8; }
+.rhead .n { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--slate); letter-spacing: .1em; }
+.eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--slate); }
+
+/* ── 1. the log: plain rows on the page ground, hanging meta ── */
+.row { display: grid; grid-template-columns: 18px minmax(0,1fr) auto; gap: var(--s3); align-items: baseline; padding: var(--s2) 0; border-bottom: 1px solid var(--rule-2); }
+.row:hover .ghost { opacity: 1; }
+.check { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--slate); display: grid; place-items: center; font-size: 8px; color: transparent; align-self: center; }
+.check:hover { border-color: var(--champagne); }
+.row.done .check { color: var(--slate); }
+.rtitle { min-width: 0; overflow-wrap: anywhere; display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap; }
+.row.done .rtitle { color: var(--slate); text-decoration: line-through; }
+.star { color: var(--champagne); font-size: 10px; }
+.tag { font-size: 12px; color: var(--slate); }
+.rmeta { display: flex; align-items: baseline; gap: var(--s3); white-space: nowrap; }
+.num { font-family: var(--mono); font-size: 11px; color: var(--slate); font-variant-numeric: tabular-nums; letter-spacing: .03em; }
+.num.late { color: var(--coral); } .num.soon { color: var(--amber); }
+.ghost { opacity: 0; transition: opacity .12s; color: var(--slate); font-size: 11px; }
+.ghost:hover { color: var(--ivory); }
+.ghost:focus-visible { opacity: 1; }
+.divider { display: flex; align-items: center; gap: var(--s3); margin: var(--s5) 0 var(--s2); }
+.divider .line { flex: 1; height: 1px; background: var(--rule); }
+.addline { display: flex; align-items: baseline; gap: var(--s3); padding: var(--s3) 0 0; color: var(--slate); font-size: 13px; }
+.addline:hover { color: var(--ash); }
+
+/* ── 2. the calendar: a time rail, not a list of chips ──────── */
+.strip { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: var(--s4); }
+.strip button { display: flex; flex-direction: column; align-items: center; gap: var(--s1); padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
+.strip .d { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--slate); }
+.strip .n { font-family: var(--mono); font-size: 15px; color: var(--ash); font-variant-numeric: tabular-nums; }
+.strip .p { width: 3px; height: 3px; background: var(--slate); }
+.strip .p.none { background: transparent; }
+.strip button[aria-pressed="true"] { border-bottom: 1px solid var(--champagne); }
+.strip button[aria-pressed="true"] .d, .strip button[aria-pressed="true"] .n { color: var(--champagne); }
+.strip button[aria-pressed="true"] .p { background: var(--champagne); }
+
+.rail-day { border-left: 1px solid var(--rule); padding-left: var(--s4); margin-left: var(--s4); display: flex; flex-direction: column; }
+.slot { position: relative; padding: var(--s2) 0 var(--s3); }
+.slot::before { content: ''; position: absolute; left: calc(var(--s4) * -1 - 1px); top: 15px; width: var(--s3); height: 1px; background: var(--rule); }
+.slot .t { font-family: var(--mono); font-size: 10.5px; color: var(--champagne); letter-spacing: .06em; }
+.slot .what { font-size: 13.5px; margin-top: 2px; }
+.slot .where { font-size: 11.5px; color: var(--slate); }
+.slot.past { color: var(--slate); }
+.slot.past .t { color: var(--slate); }
+.slot.past .what { color: var(--slate); }
+.nowmark { position: relative; padding: var(--s1) 0; }
+.nowmark::before { content: ''; position: absolute; left: calc(var(--s4) * -1 - 3px); top: 50%; width: 5px; height: 5px; background: var(--champagne); }
+.nowmark span { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--champagne); }
+
+/* ── 3. habits: the one filled surface, and a grid ──────────── */
+.hab-fill { background: var(--tint); padding: var(--s4); }
+.hrow { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) 0; border-bottom: 1px solid var(--rule-2); }
+.hrow .hn { flex: 1; min-width: 0; color: var(--ash); display: flex; align-items: center; gap: var(--s2); }
+.hrow.done .hn { color: var(--ivory); }
+.hrow .tick { color: var(--champagne); font-size: 10px; }
+.levels { display: flex; gap: var(--s1); flex-wrap: wrap; justify-content: flex-end; }
+.lv { font-family: var(--mono); font-size: 10.5px; padding: 2px var(--s2); border: 1px solid var(--rule); color: var(--slate); white-space: nowrap; }
+.lv:hover { border-color: var(--slate); color: var(--ash); }
+.lv[aria-pressed="true"] { background: var(--champagne); border-color: var(--champagne); color: var(--ground); }
+.hours { font-family: var(--mono); font-size: 11px; color: var(--champagne); }
+.seg { display: flex; gap: var(--s3); margin-left: auto; }
+.seg button { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--slate); border-bottom: 1px solid transparent; }
+.seg button[aria-pressed="true"] { color: var(--ivory); border-bottom-color: var(--champagne); }
+
+.mgrid { overflow-x: auto; padding-top: var(--s2); }
+.mgrid table { border-collapse: separate; border-spacing: 2px; }
+.mgrid th { font-family: var(--mono); font-size: 9px; font-weight: 400; color: var(--slate); padding-bottom: var(--s1); }
+.mgrid th.nm { text-align: right; padding-right: var(--s2); font-family: var(--sans); font-size: 12px; color: var(--ash); white-space: nowrap; }
+.mgrid td i { display: block; width: 11px; height: 11px; background: var(--tint-2); }
+.mgrid td i.l1 { background: #E7CFA740; } .mgrid td i.l2 { background: #E7CFA773; }
+.mgrid td i.l3 { background: #E7CFA7B3; } .mgrid td i.l4 { background: var(--champagne); }
+.mgrid td i.td { outline: 1px solid var(--ash); outline-offset: 1px; }
+
+.cad { display: grid; grid-template-columns: 1fr 32px 72px 52px; gap: var(--s3); align-items: center; padding: var(--s2) 0; border-bottom: 1px solid var(--rule-2); }
+.cad .nm { color: var(--ash); font-size: 13px; }
+.cad .st { text-align: right; }
+.bar { height: 2px; background: var(--tint-2); }
+.bar i { display: block; height: 100%; background: var(--slate); }
+.cad.warn i { background: var(--amber); } .cad.warn .st { color: var(--amber); }
+.cad.over i { background: var(--coral); } .cad.over .st { color: var(--coral); }
+
+/* ── boards (tasks, jobs) — columns of rows, no cards ───────── */
+.toolbar { display: flex; align-items: baseline; gap: var(--s5); margin-bottom: var(--s5); flex-wrap: wrap; border-bottom: 1px solid var(--rule); padding-bottom: var(--s3); }
+.toolbar .seg { margin-left: 0; }
+.txtbtn { font-size: 12.5px; letter-spacing: .06em; color: var(--slate); }
+.txtbtn:hover { color: var(--ivory); }
+.txtbtn.primary { color: var(--champagne); }
+
+.board { display: flex; gap: var(--s5); overflow-x: auto; padding-bottom: var(--s4); align-items: start; }
+.col { flex: 0 0 250px; min-width: 0; }
+.col + .col { border-left: 1px solid var(--rule); padding-left: var(--s5); }
+.colhead { display: flex; align-items: baseline; gap: var(--s2); padding-bottom: var(--s2); margin-bottom: var(--s3); }
+.colhead .t { font-size: 13px; letter-spacing: .1em; color: var(--ash); }
+.colhead .n { margin-left: auto; font-family: var(--mono); font-size: 20px; color: var(--slate); line-height: 1; }
+.entry { padding: var(--s2) 0; border-bottom: 1px solid var(--rule-2); display: flex; flex-direction: column; gap: 2px; }
+.entry:hover { border-bottom-color: var(--rule); }
+.entry .ct { font-size: 13.5px; line-height: 1.35; }
+.entry .co { font-size: 14px; letter-spacing: .02em; }
+.entry .cm { display: flex; align-items: baseline; gap: var(--s3); }
+.entry .stage { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--slate); }
+
+/* ── week ───────────────────────────────────────────────────── */
+.wstrip { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--rule); margin-bottom: var(--s6); }
+.wday { padding: var(--s3) 0; text-align: left; border-right: 1px solid var(--rule-2); padding-left: var(--s3); }
+.wday:last-child { border-right: 0; }
+.wday .d { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--slate); }
+.wday .n { font-family: var(--mono); font-size: 22px; color: var(--ash); line-height: 1.1; }
+.wday .h { font-family: var(--mono); font-size: 10.5px; color: var(--slate); }
+.wday.today .d, .wday.today .n, .wday.today .h { color: var(--champagne); }
+.wday.past { opacity: .4; }
+.two { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: var(--s6); align-items: start; }
+.sched { display: grid; grid-template-columns: 104px minmax(0,1fr) auto; }
+.sched > div { padding: var(--s3) var(--s3) var(--s3) 0; border-bottom: 1px solid var(--rule-2); }
+.sched .tm { font-family: var(--mono); font-size: 11px; color: var(--slate); }
+.sched .rt { font-size: 12px; color: var(--slate); text-align: right; white-space: nowrap; }
+.clash { color: var(--coral); }
+.stack { display: flex; flex-direction: column; gap: var(--s6); }
+
+@media (max-width: 1120px) {
+  .dash { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  .region.hab { grid-column: 1 / -1; padding-left: 0; padding-top: var(--s5); border-top: 1px solid var(--rule); margin-top: var(--s5); }
+  .region.cal { border-right: 0; padding-right: 0; }
+}
+@media (max-width: 720px) {
+  .dash, .two { grid-template-columns: minmax(0,1fr); }
+  .region.log { padding-right: 0; }
+  .region.cal { border: 0; padding: var(--s5) 0 0; border-top: 1px solid var(--rule); margin-top: var(--s5); }
+  .masthead .num { font-size: 34px; }
+  .wstrip { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* ── closing note — one column, hard left, not a four-up band ── */
+.colophon { border-top: 1px solid var(--rule); margin-top: var(--s8); }
+.colophon-in { max-width: 1320px; margin: 0 auto; padding: var(--s6) var(--s5) var(--s8); display: grid; grid-template-columns: minmax(0, 58ch) minmax(0, 1fr); gap: var(--s7); }
+.colophon h3 { font-family: var(--display); font-size: 32px; font-weight: 400; margin-bottom: var(--s3); }
+.colophon p { font-size: 13.5px; color: var(--ash); line-height: 1.7; }
+.colophon p + p { margin-top: var(--s3); }
+.colophon dl { font-size: 12.5px; color: var(--slate); }
+.colophon dt { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--slate); margin-top: var(--s4); }
+.colophon dd { color: var(--ash); }
+</style>
+
+<nav class="rail">
+  <span class="wordmark">personal os</span>
+  <div class="nav">
+    <button data-screen="today" aria-current="page">today</button>
+    <button data-screen="tasks">tasks</button>
+    <button data-screen="jobs">jobs</button>
+    <button data-screen="week">week</button>
+  </div>
+  <div class="status">
+    <span class="live">18:42 act 420 reading</span>
+    <span>14:07</span>
+  </div>
+</nav>
+
+<!-- ══════════════════ TODAY ══════════════════════════════════ -->
+<main class="screen" id="s-today">
+  <div class="masthead">
+    <span class="num">29</span>
+    <span class="said">
+      <h1>saturday</h1>
+      <div class="sub">AUGUST 2026</div>
+    </span>
+  </div>
+
+  <div class="dash">
+
+    <!-- 1 · the log -->
+    <section class="region log">
+      <div class="rhead"><h2>today</h2><span class="n">6 OPEN</span></div>
+
+      <div class="row">
+        <button class="check" aria-label="Complete task">✓</button>
+        <span class="rtitle"><span class="star">★</span>ACT 420 — problem set 3, q4–7 <span class="tag">school</span></span>
+        <span class="rmeta"><span class="num late">2d late</span><button class="ghost" aria-label="Start focus timer">▶</button></span>
+      </div>
+      <div class="row">
+        <button class="check" aria-label="Complete task">✓</button>
+        <span class="rtitle"><span class="star">★</span>Draft the fall workload plan <span class="tag">school</span></span>
+        <span class="rmeta"><span class="num soon">tomorrow</span><button class="ghost" aria-label="Start focus timer">▶</button></span>
+      </div>
+      <div class="row">
+        <button class="check" aria-label="Complete task">✓</button>
+        <span class="rtitle">Apply — Stripe, infra engineer <span class="tag">jobs</span></span>
+        <span class="rmeta"><span class="num">Mon</span><button class="ghost" aria-label="Start focus timer">▶</button></span>
+      </div>
+      <div class="row">
+        <button class="check" aria-label="Complete task">✓</button>
+        <span class="rtitle">Pull the résumé bullet on the queue migration <span class="tag">jobs</span></span>
+        <span class="rmeta"><span class="num">Mon</span><button class="ghost" aria-label="Start focus timer">▶</button></span>
+      </div>
+      <div class="row">
+        <button class="check" aria-label="Complete task">✓</button>
+        <span class="rtitle">Review the donation-form PR <span class="tag">actblue</span></span>
+        <span class="rmeta"><span class="num">Sep 2</span><button class="ghost" aria-label="Start focus timer">▶</button></span>
+      </div>
+      <div class="row">
+        <button class="check" aria-label="Complete task">✓</button>
+        <span class="rtitle">Deep-clean the fridge <span class="tag">home</span></span>
+        <span class="rmeta"><span class="num">someday</span><button class="ghost" aria-label="Start focus timer">▶</button></span>
+      </div>
+
+      <button class="addline">+ &nbsp;add a task</button>
+
+      <div class="divider"><span class="eyebrow">Done</span><span class="line"></span><span class="num">3h 40m</span></div>
+      <div class="row done">
+        <button class="check" aria-label="Reopen task">✓</button>
+        <span class="rtitle">Refactor the donation-form validator</span>
+        <span class="rmeta"><span class="num">2h 10m</span></span>
+      </div>
+      <div class="row done">
+        <button class="check" aria-label="Reopen task">✓</button>
+        <span class="rtitle">Send the Recurse follow-up email</span>
+        <span class="rmeta"><span class="num">15m</span></span>
+      </div>
+      <div class="row done">
+        <button class="check" aria-label="Reopen task">✓</button>
+        <span class="rtitle">Read two ACT 420 chapters</span>
+        <span class="rmeta"><span class="num">1h 15m</span></span>
+      </div>
+    </section>
+
+    <!-- 2 · the calendar, as a time rail -->
+    <section class="region cal">
+      <div class="rhead"><h2>schedule</h2><span class="n">5H 20M</span></div>
+
+      <div class="strip">
+        <button aria-pressed="true"><span class="d">Sat</span><span class="n">29</span><span class="p"></span></button>
+        <button aria-pressed="false"><span class="d">Sun</span><span class="n">30</span><span class="p none"></span></button>
+        <button aria-pressed="false"><span class="d">Mon</span><span class="n">31</span><span class="p"></span></button>
+        <button aria-pressed="false"><span class="d">Tue</span><span class="n">1</span><span class="p"></span></button>
+        <button aria-pressed="false"><span class="d">Wed</span><span class="n">2</span><span class="p"></span></button>
+        <button aria-pressed="false"><span class="d">Thu</span><span class="n">3</span><span class="p"></span></button>
+        <button aria-pressed="false"><span class="d">Fri</span><span class="n">4</span><span class="p none"></span></button>
+      </div>
+
+      <div class="rail-day">
+        <div class="slot past"><div class="t">9:00 AM</div><div class="what">ActBlue standup</div><div class="where">zoom</div></div>
+        <div class="slot past"><div class="t">11:30 AM</div><div class="what">Pairing — donation form</div><div class="where">zoom · ran 20m over</div></div>
+        <div class="slot past"><div class="t">1:00 PM</div><div class="what">Lunch with Sam</div><div class="where">Blue Bottle, Kendall</div></div>
+        <div class="nowmark"><span>NOW · 2:07 PM</span></div>
+        <div class="slot"><div class="t">3:30 PM</div><div class="what">Coffee with Priya</div><div class="where">Tatte, Central</div></div>
+        <div class="slot"><div class="t">6:00 PM</div><div class="what">ACT 420 study group</div><div class="where">Barker 214</div></div>
+        <div class="slot"><div class="t">8:30 PM</div><div class="what">Call home</div></div>
+      </div>
+    </section>
+
+    <!-- 3 · habits, the one filled surface -->
+    <section class="region hab">
+      <div class="rhead">
+        <h2>habits</h2>
+        <div class="seg">
+          <button aria-pressed="true" data-hab="today">today</button>
+          <button aria-pressed="false" data-hab="month">august</button>
+        </div>
+      </div>
+
+      <div class="hab-fill">
+        <div id="hab-today">
+          <div class="hrow done">
+            <span class="hn"><span class="tick">✓</span>Sleep</span>
+            <span class="hours">7.4h</span>
+            <div class="levels">
+              <button class="lv" aria-pressed="true">↑ 7:10a</button>
+              <button class="lv" aria-pressed="true">↓ 11:45p</button>
+            </div>
+          </div>
+          <div class="hrow done">
+            <span class="hn"><span class="tick">✓</span>Story points</span>
+            <div class="levels">
+              <button class="lv" aria-pressed="false">1–3</button>
+              <button class="lv" aria-pressed="false">4–6</button>
+              <button class="lv" aria-pressed="true">7–10</button>
+              <button class="lv" aria-pressed="false">≥ 11</button>
+            </div>
+          </div>
+          <div class="hrow done">
+            <span class="hn"><span class="tick">✓</span>Movement</span>
+            <div class="levels">
+              <button class="lv" aria-pressed="false">walk</button>
+              <button class="lv" aria-pressed="true">30 min</button>
+              <button class="lv" aria-pressed="false">gym</button>
+            </div>
+          </div>
+          <div class="hrow">
+            <span class="hn">Reading</span>
+            <div class="levels">
+              <button class="lv" aria-pressed="false">10 pp</button>
+              <button class="lv" aria-pressed="false">30 pp</button>
+              <button class="lv" aria-pressed="false">a chapter</button>
+            </div>
+          </div>
+          <div class="hrow">
+            <span class="hn">No doomscroll</span>
+            <div class="levels"><button class="lv" aria-pressed="false">held</button></div>
+          </div>
+
+          <div class="divider"><span class="eyebrow">Cadence</span><span class="line"></span><span class="num late">vacuum, 7d over</span></div>
+          <div class="cad over"><span class="nm">Vacuum</span><span class="num">21d</span><span class="bar"><i style="width:100%"></i></span><span class="num st">7d over</span></div>
+          <div class="cad warn"><span class="nm">Laundry</span><span class="num">6d</span><span class="bar"><i style="width:86%"></i></span><span class="num st">due</span></div>
+          <div class="cad"><span class="nm">Sheets</span><span class="num">12d</span><span class="bar"><i style="width:57%"></i></span><span class="num st">fresh</span></div>
+          <div class="cad"><span class="nm">Water plants</span><span class="num">2d</span><span class="bar"><i style="width:29%"></i></span><span class="num st">fresh</span></div>
+          <div class="cad"><span class="nm">Back up laptop</span><span class="num">9d</span><span class="bar"><i style="width:30%"></i></span><span class="num st">fresh</span></div>
+        </div>
+
+        <div class="mgrid" id="hab-month" hidden>
+          <table><thead><tr><th></th></tr></thead><tbody id="mgrid-body"></tbody></table>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ══════════════════ TASKS ══════════════════════════════════ -->
+<main class="screen" id="s-tasks" hidden>
+  <div class="masthead">
+    <span class="num">29</span>
+    <span class="said">
+      <h1>saturday</h1>
+      <div class="sub">AUGUST 2026</div>
+    </span>
+  </div>
+
+  <div class="toolbar">
+    <div class="seg">
+      <button aria-pressed="true">kanban</button>
+      <button aria-pressed="false">forecast</button>
+      <button aria-pressed="false">category</button>
+    </div>
+    <button class="txtbtn">sort · priority</button>
+    <button class="txtbtn">projects</button>
+    <button class="txtbtn primary">+ new task</button>
+  </div>
+
+  <div class="board">
+    <div class="col">
+      <div class="colhead"><span class="t">today</span><span class="n">3</span></div>
+      <div class="entry"><span class="ct"><span class="star">★</span> ACT 420 — problem set 3, q4–7</span><span class="cm"><span class="num late">2d late</span><span class="tag">school</span><span class="num" style="margin-left:auto">5 pts</span></span></div>
+      <div class="entry"><span class="ct">Review the donation-form PR</span><span class="cm"><span class="num">today</span><span class="tag">actblue</span><span class="num" style="margin-left:auto">2 pts</span></span></div>
+      <div class="entry"><span class="ct">Pull the résumé bullet on the queue migration</span><span class="cm"><span class="num">today</span><span class="tag">jobs</span></span></div>
+    </div>
+    <div class="col">
+      <div class="colhead"><span class="t">this week</span><span class="n">4</span></div>
+      <div class="entry"><span class="ct"><span class="star">★</span> Draft the fall workload plan</span><span class="cm"><span class="num soon">tomorrow</span><span class="tag">school</span><span class="num" style="margin-left:auto">8 pts</span></span></div>
+      <div class="entry"><span class="ct">Apply — Stripe, infra engineer</span><span class="cm"><span class="num">Mon</span><span class="tag">jobs</span></span></div>
+      <div class="entry"><span class="ct">Queue migration — write the runbook</span><span class="cm"><span class="num">Wed</span><span class="tag">actblue</span><span class="num" style="margin-left:auto">5 pts</span></span></div>
+      <div class="entry"><span class="ct">Problem set 4 — first pass</span><span class="cm"><span class="num">Fri</span><span class="tag">school</span></span></div>
+    </div>
+    <div class="col">
+      <div class="colhead"><span class="t">this month</span><span class="n">5</span></div>
+      <div class="entry"><span class="ct">Course registration — spring</span><span class="cm"><span class="num">Sep 14</span><span class="tag">school</span></span></div>
+      <div class="entry"><span class="ct">Renew the apartment lease</span><span class="cm"><span class="num">Sep 20</span><span class="tag">home</span></span></div>
+      <div class="entry"><span class="ct">Two more applications a week</span><span class="cm"><span class="num">recurring</span><span class="tag">jobs</span></span></div>
+    </div>
+    <div class="col">
+      <div class="colhead"><span class="t">someday</span><span class="n">12</span></div>
+      <div class="entry"><span class="ct">Deep-clean the fridge</span><span class="cm"><span class="tag">home</span></span></div>
+      <div class="entry"><span class="ct">Learn enough Typst to stop fighting it</span><span class="cm"><span class="tag">school</span></span></div>
+      <div class="entry"><span class="ct">Back up the old laptop before wiping it</span><span class="cm"><span class="tag">home</span></span></div>
+    </div>
+  </div>
+</main>
+
+<!-- ══════════════════ JOBS ═══════════════════════════════════ -->
+<main class="screen" id="s-jobs" hidden>
+  <div class="masthead">
+    <span class="num">29</span>
+    <span class="said">
+      <h1>saturday</h1>
+      <div class="sub">AUGUST 2026</div>
+    </span>
+  </div>
+
+  <div class="toolbar">
+    <div class="seg">
+      <button aria-pressed="true">pipeline</button>
+      <button aria-pressed="false">list</button>
+      <button aria-pressed="false">research</button>
+    </div>
+    <button class="txtbtn">sort · last touched</button>
+    <button class="txtbtn primary">+ company</button>
+  </div>
+
+  <div class="board">
+    <div class="col">
+      <div class="colhead"><span class="t">researching</span><span class="n">6</span></div>
+      <div class="entry"><span class="co">Anthropic</span><span class="stage">NEW GRAD · INFRA</span></div>
+      <div class="entry"><span class="co">Ramp</span><span class="stage">OPENS SEP</span></div>
+      <div class="entry"><span class="co">Figma</span><span class="stage">NO ROLES YET</span></div>
+    </div>
+    <div class="col">
+      <div class="colhead"><span class="t">open</span><span class="n">4</span></div>
+      <div class="entry"><span class="co">Stripe</span><span class="cm"><span class="stage">INFRA ENGINEER</span><span class="num soon" style="margin-left:auto">closes Mon</span></span></div>
+      <div class="entry"><span class="co">Vercel</span><span class="cm"><span class="stage">PRODUCT ENG</span><span class="num" style="margin-left:auto">Sep 12</span></span></div>
+    </div>
+    <div class="col">
+      <div class="colhead"><span class="t">applied</span><span class="n">7</span></div>
+      <div class="entry"><span class="co">Recurse Center</span><span class="stage">FOLLOWED UP 29 AUG</span></div>
+      <div class="entry"><span class="co">Linear</span><span class="stage">APPLIED 22 AUG</span></div>
+      <div class="entry"><span class="co">Notion</span><span class="stage">APPLIED 18 AUG</span></div>
+    </div>
+    <div class="col">
+      <div class="colhead"><span class="t">oa</span><span class="n">2</span></div>
+      <div class="entry"><span class="co">Datadog</span><span class="cm"><span class="stage">90 MIN · HACKERRANK</span><span class="num soon" style="margin-left:auto">4d</span></span></div>
+    </div>
+    <div class="col">
+      <div class="colhead"><span class="t">phone</span><span class="n">2</span></div>
+      <div class="entry"><span class="co">Watershed</span><span class="stage">TUE 1 SEP · 4:00 PM</span></div>
+    </div>
+    <div class="col">
+      <div class="colhead"><span class="t">onsite</span><span class="n">1</span></div>
+      <div class="entry"><span class="co">Retool</span><span class="stage">SEP 9 · FULL LOOP</span></div>
+    </div>
+    <div class="col">
+      <div class="colhead"><span class="t">closed</span><span class="n">9</span></div>
+      <div class="entry"><span class="co">Airtable</span><span class="stage">REJECTED 12 AUG</span></div>
+      <div class="entry"><span class="co">Asana</span><span class="stage">GHOSTED SINCE JUL</span></div>
+    </div>
+  </div>
+</main>
+
+<!-- ══════════════════ WEEK ═══════════════════════════════════ -->
+<main class="screen" id="s-week" hidden>
+  <div class="masthead">
+    <span class="num">29</span>
+    <span class="said">
+      <h1>saturday</h1>
+      <div class="sub">AUGUST 2026</div>
+    </span>
+  </div>
+
+  <div class="wstrip">
+    <div class="wday past"><div class="d">Mon</div><div class="n">24</div><div class="h">6h</div></div>
+    <div class="wday past"><div class="d">Tue</div><div class="n">25</div><div class="h">8.5h</div></div>
+    <div class="wday past"><div class="d">Wed</div><div class="n">26</div><div class="h">4h</div></div>
+    <div class="wday past"><div class="d">Thu</div><div class="n">27</div><div class="h">7h</div></div>
+    <div class="wday past"><div class="d">Fri</div><div class="n">28</div><div class="h">5h</div></div>
+    <div class="wday today"><div class="d">Sat</div><div class="n">29</div><div class="h">5.5h</div></div>
+    <div class="wday"><div class="d">Sun</div><div class="n">30</div><div class="h">2h</div></div>
+  </div>
+
+  <div class="two">
+    <section>
+      <div class="rhead"><h2>saturday</h2><span class="n">5H 20M COMMITTED</span></div>
+      <div class="sched">
+        <div class="tm">9:00 – 9:30a</div><div>ActBlue standup</div><div class="rt">actblue</div>
+        <div class="tm">9:30 – 11:30a</div><div>Donation-form validator</div><div class="rt">done · 2h 10m</div>
+        <div class="tm">11:30a – 1:00p</div><div>Pairing session</div><div class="rt clash">overlaps lunch</div>
+        <div class="tm">1:00 – 2:00p</div><div>Lunch with Sam</div><div class="rt clash">overlaps pairing</div>
+        <div class="tm">3:30 – 4:30p</div><div>Coffee with Priya</div><div class="rt">personal</div>
+        <div class="tm">6:00 – 8:00p</div><div>ACT 420 study group</div><div class="rt">school</div>
+      </div>
+      <p style="font-size:12.5px; color:var(--slate); margin-top:var(--s4);">The doc proposes; <b style="color:var(--ash);font-weight:400">tasks</b> stays the system of record.</p>
+    </section>
+
+    <div class="stack">
+      <section>
+        <div class="rhead"><h2>deadlines</h2><span class="n">3</span></div>
+        <div class="row">
+          <button class="check" aria-label="Complete task">✓</button>
+          <span class="rtitle">Problem set 3</span><span class="rmeta"><span class="num late">2d late</span></span>
+        </div>
+        <div class="row">
+          <button class="check" aria-label="Complete task">✓</button>
+          <span class="rtitle">Fall workload plan</span><span class="rmeta"><span class="num soon">Sun</span></span>
+        </div>
+        <div class="row">
+          <button class="check" aria-label="Complete task">✓</button>
+          <span class="rtitle">Stripe application <span class="tag">not tracked</span></span><span class="rmeta"><span class="num">Mon</span></span>
+        </div>
+      </section>
+
+      <section>
+        <div class="rhead"><h2>actblue</h2><span class="n">14 / 20H</span></div>
+        <div class="bar" style="height:3px"><i style="width:70%; background: var(--champagne)"></i></div>
+        <p style="font-size:13px; color:var(--ash); margin-top:var(--s3);">Six hours left and two days to log them.</p>
+      </section>
+
+      <section>
+        <div class="rhead"><h2>carries over</h2><span class="n">2</span></div>
+        <div class="row"><button class="check" aria-label="Keep for next week">✓</button><span class="rtitle">Deep-clean the fridge</span><span class="rmeta"></span></div>
+        <div class="row"><button class="check" aria-label="Keep for next week">✓</button><span class="rtitle">Back up the old laptop</span><span class="rmeta"></span></div>
+        <p style="font-size:12.5px; color:var(--slate); margin-top:var(--s3);">Unchecked items seed next week's doc.</p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<section class="colophon">
+  <div class="colophon-in">
+    <div>
+      <h3>what this is</h3>
+      <p>The app's layout, unchanged — the same three dashboard regions, the same kanban, the same pipeline, the same week tab. What moved is the surface, and it moved by subtraction: no card fills, no radii, no glass, no ten-hue tag palette. Regions are separated by a single hairline, the way columns in a printed page are.</p>
+      <p>Each region is treated differently on purpose. The log is plain rows on the page ground. The schedule hangs off a vertical time rail with the now-mark cut into it. Habits are the only filled surface in the app, which is what makes the tracker read as a distinct instrument rather than a third list.</p>
+      <p>Colour is doing one job: champagne marks what is current — today, now, an active level, the accent under the tab you are on. Coral and amber are reserved for late and due. Nothing else is coloured, so a coloured row always means time.</p>
+    </div>
+    <dl>
+      <dt>Colour</dt>
+      <dd>#16130F ground · #F2EDE4 ivory · #E7CFA7 champagne · #E2705A late · #D8A54A due</dd>
+      <dt>Type</dt>
+      <dd>Italianno for the masthead and region titles — four or five words a screen. Jost 200/300 for language, DM Mono for anything that is a number.</dd>
+      <dt>Space</dt>
+      <dd>4 · 8 · 12 · 16 · 24 · 32 · 48 · 64, and nothing else</dd>
+      <dt>Radius</dt>
+      <dd>None. The completion circle is the only round thing, because it is a target and not a container.</dd>
+      <dt>Open</dt>
+      <dd>Cadence rows need the <b>habit_events</b> table from PLAN §2.2. The month grid renders four levels as four opacities of champagne — worth a look against a 31-day month before it lands.</dd>
+    </dl>
+  </div>
+</section>
+
+<script>
+const screens = ['today', 'tasks', 'jobs', 'week'];
+document.querySelectorAll('.nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav button').forEach(b => {
+      if (b === btn) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+    screens.forEach(s => { document.getElementById('s-' + s).hidden = s !== btn.dataset.screen; });
+    window.scrollTo({ top: 0 });
+  });
+});
+
+const HABITS = [
+  ['Sleep',         [3,4,2,0,3,4,3,2,4,4,3,1,4,3,3,4,2,4,3,3,0,4,3,2,4,3,4,3,3,0,0]],
+  ['Story points',  [2,3,3,4,2,0,0,3,4,3,2,3,4,4,2,0,3,3,4,2,3,3,0,4,3,3,4,2,3,0,0]],
+  ['Movement',      [1,0,2,3,0,1,2,3,0,2,1,0,3,2,1,2,0,3,1,2,0,3,2,1,0,2,3,0,2,0,0]],
+  ['Reading',       [2,2,0,3,1,2,3,0,2,1,3,2,0,1,2,3,2,0,1,3,2,1,0,2,3,1,2,3,0,0,0]],
+  ['No doomscroll', [1,1,0,1,1,0,1,1,1,0,1,1,1,0,0,1,1,1,0,1,1,0,1,1,1,1,0,1,0,0,0]],
+];
+const TODAY = 29;
+const head = document.querySelector('.mgrid thead tr');
+for (let d = 1; d <= 31; d++) {
+  const th = document.createElement('th');
+  th.textContent = (d === 1 || d % 5 === 0) ? d : '';
+  head.appendChild(th);
+}
+const body = document.getElementById('mgrid-body');
+HABITS.forEach(([name, days]) => {
+  const tr = document.createElement('tr');
+  const th = document.createElement('th');
+  th.className = 'nm'; th.textContent = name; tr.appendChild(th);
+  days.forEach((lvl, i) => {
+    const td = document.createElement('td');
+    const cell = document.createElement('i');
+    if (lvl) cell.className = 'l' + lvl;
+    if (i + 1 === TODAY) cell.className += ' td';
+    td.appendChild(cell); tr.appendChild(td);
+  });
+  body.appendChild(tr);
+});
+
+document.querySelectorAll('[data-hab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const month = btn.dataset.hab === 'month';
+    document.querySelectorAll('[data-hab]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+    document.getElementById('hab-today').hidden = month;
+    document.getElementById('hab-month').hidden = !month;
+  });
+});
+
+document.querySelectorAll('.hrow .levels').forEach(group => {
+  group.querySelectorAll('.lv').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const on = chip.getAttribute('aria-pressed') === 'true';
+      if (group.children.length > 2) group.querySelectorAll('.lv').forEach(c => c.setAttribute('aria-pressed', 'false'));
+      chip.setAttribute('aria-pressed', String(!on));
+      const row = chip.closest('.hrow');
+      const any = !!group.querySelector('.lv[aria-pressed="true"]');
+      row.classList.toggle('done', any);
+      if (any && !row.querySelector('.tick')) {
+        const tick = document.createElement('span');
+        tick.className = 'tick'; tick.textContent = '✓';
+        row.querySelector('.hn').prepend(tick);
+      } else if (!any) {
+        row.querySelector('.tick')?.remove();
+      }
+    });
+  });
+});
+document.querySelectorAll('.strip button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.strip button').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+  });
+});
+document.querySelectorAll('.row .check').forEach(btn => {
+  btn.addEventListener('click', () => btn.closest('.row').classList.toggle('done'));
+});
+</script>

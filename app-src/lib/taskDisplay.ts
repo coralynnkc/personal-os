@@ -12,11 +12,16 @@ export type Urgency = 'today' | 'week' | 'month' | 'someday'
 /** now → soon → this horizon → far. Every chip colour comes from here. */
 export type Tone = 'danger' | 'warn' | 'accent' | 'muted'
 
+/**
+ * Colour on a row only ever means time, and it runs warm to cool: coral is
+ * late, amber is due this week, lavender is still on the horizon. A task with
+ * no date at all is not on the scale, so it stays slate.
+ */
 export const TONE_COLOR: Record<Tone, string> = {
-  danger: 'var(--danger)',
-  warn: 'var(--warn)',
-  accent: 'var(--accent)',
-  muted: 'var(--ink-4)',
+  danger: 'var(--coral)',
+  warn: 'var(--amber)',
+  accent: 'var(--lavender)',
+  muted: 'var(--slate)',
 }
 
 export function localToday(): string {
@@ -110,27 +115,7 @@ export function displayTags(
   return { shown: visible.slice(0, max), hidden: visible.slice(max) }
 }
 
-// Ten well-separated hues, hashed into a ring so a tag keeps its colour across
-// every view without a colour table to maintain by hand.
-//
-// This is the one place colour is built outside globals.css: a generated
-// palette can't live there, because Tailwind's pipeline drops :root custom
-// properties that no CSS rule references. Lightness and chroma are fixed, so
-// only the hue varies — every tag chip is the same weight against the dark
-// ground.
-const TAG_HUES = [265, 232, 200, 168, 140, 110, 75, 45, 20, 330]
-
-export function tagColor(tag: string): { fg: string; bg: string; border: string } {
-  let h = 0
-  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) | 0
-  const hue = TAG_HUES[Math.abs(h) % TAG_HUES.length]
-  return {
-    // Pale and low-chroma: a card can carry two of these plus a date chip, and
-    // at the old saturation ten tags on screen fought each other for attention.
-    fg: `oklch(0.855 0.062 ${hue})`,
-    bg: `oklch(0.72 0.12 ${hue} / 0.13)`,
-    // Chips are fill-only now. Kept for the few places that outline a tag
-    // (the drawer's editable list) rather than fill it.
-    border: `oklch(0.72 0.12 ${hue} / 0.24)`,
-  }
-}
+// The ten-hue tag palette is retired: a row that carries two coloured chips
+// spends its colour budget on something that is not time, and then coral means
+// nothing. Tags are quiet text now, ordered rarest-first by displayTags above —
+// which is the part that was actually doing the identifying work.

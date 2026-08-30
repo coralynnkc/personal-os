@@ -24,7 +24,7 @@ function Clock() {
         month: 'short',
         day: 'numeric',
         timeZone: tz,
-      })
+      }).toUpperCase()
       setDisplay(`${time} · ${date}`)
     }
     tick()
@@ -32,65 +32,47 @@ function Clock() {
     return () => clearInterval(id)
   }, [])
 
-  // Reserve the width before the first tick so the rail doesn't jump when the
-  // clock arrives; `display` is empty until the effect runs on the client.
-  // Hidden on narrow screens: the phone already shows a clock, and at 480px
-  // it was pushing the wordmark onto a second line.
-  return (
-    <span
-      className="meta hidden sm:inline"
-      style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-4)', minWidth: 128, textAlign: 'right' }}
-    >
-      {display}
-    </span>
-  )
+  return <span className="mono rail-clock" style={{ fontSize: 11, color: 'var(--slate)', letterSpacing: '0.04em' }}>{display}</span>
 }
 
 export default function Rail() {
   const path = usePathname()
 
   return (
-    <nav style={{
+    <nav className="rail" style={{
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '0 16px',
-      gap: 12,
-      height: 54,
-      borderBottom: '1px solid var(--glass-border)',
-      background: 'oklch(0.19 0.008 280 / 0.88)',
-      backdropFilter: 'blur(12px)',
+      gap: 'var(--s4)',
+      padding: '0 var(--s4)',
+      height: 52,
+      borderBottom: '1px solid var(--rule)',
+      background: 'var(--ground)',
       position: 'sticky',
       top: 0,
       zIndex: 100,
     }}>
-      {/* Was `PERSONAL OS // v1.0` in accent-coloured uppercase mono — the
-          loudest element on every screen, announcing a version number nobody
-          needs. A wordmark is enough. */}
-      <span style={{
-        fontSize: 'var(--text-md)', fontWeight: 600, letterSpacing: '-0.01em',
-        color: 'var(--ink-5)', whiteSpace: 'nowrap', flexShrink: 0,
-      }}>
-        Personal OS
+      {/* Hard left, hard right — the rail is asymmetric, not a centred band. */}
+      <span className="display rail-wordmark" style={{ fontSize: 32, color: 'var(--ivory)' }}>
+        personal os
       </span>
 
-      <div style={{ display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 999, padding: 3 }}>
-        {([['/', 'Home'], ['/tasks', 'Tasks'], ['/jobs', 'Jobs'], ['/week', 'Week']] as const).map(([href, label]) => {
+      <div className="rail-nav" style={{ display: 'flex', gap: 'var(--s5)', marginLeft: 'auto' }}>
+        {([['/', 'today'], ['/tasks', 'tasks'], ['/jobs', 'jobs'], ['/week', 'week']] as const).map(([href, label]) => {
           const active = href === '/' ? path === '/' : path.startsWith(href)
           return (
             <Link
               key={href}
               href={href}
-              className="tap"
               aria-current={active ? 'page' : undefined}
+              className="quiet-link"
               style={{
-                padding: '6px 18px',
-                borderRadius: 999,
-                fontSize: 'var(--text-base)',
-                fontWeight: 500,
-                color: active ? 'var(--ink-6)' : 'var(--ink-4)',
-                background: active ? 'var(--ink-2)' : 'transparent',
+                fontSize: 13,
+                letterSpacing: '0.12em',
+                color: active ? 'var(--ivory)' : 'var(--slate)',
                 textDecoration: 'none',
+                paddingBottom: 'var(--s1)',
+                borderBottom: `1px solid ${active ? 'var(--champagne)' : 'transparent'}`,
+                transition: 'color 0.15s',
               }}
             >
               {label}
@@ -99,7 +81,7 @@ export default function Rail() {
         })}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s4)' }}>
         <PomodoroRail />
         <Clock />
       </div>

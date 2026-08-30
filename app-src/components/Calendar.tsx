@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { MapPin } from 'lucide-react'
 import { USER_TZ } from '@/lib/dateKey'
-import { ErrorRow } from './jobs/ui'
+import { ErrorRow, RegionHead } from './jobs/ui'
 
 type CalEvent = {
   id: string
@@ -78,26 +78,25 @@ export default function Calendar() {
   const selectedEvents = byDay[selectedDay] ?? []
   const now = new Date()
 
-  return (
-    <div className="card" style={{ minHeight: 280, display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 18px 10px',
-      }}>
-        <span className="panel-title">Calendar</span>
-        {loading && (
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)' }}>Loading…</span>
-        )}
-      </div>
+  // Total scheduled time on the selected day — the number the region head carries.
+  const scheduled = selectedEvents.reduce((mins, ev) => {
+    if (ev.allDay) return mins
+    return mins + Math.max(0, (new Date(ev.end).getTime() - new Date(ev.start).getTime()) / 60000)
+  }, 0)
+  const scheduledLabel = scheduled > 0
+    ? `${Math.floor(scheduled / 60)}h ${Math.round(scheduled % 60)}m`
+    : undefined
 
-      {/* 7-day strip. The grid used to be ruled on every column and underlined
-          as a whole — seven vertical hairlines for seven buttons. Selection
-          alone carries it now. */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: 2, padding: '0 10px 10px',
-      }}>
+  const nowMark = selectedDay === todayKey
+    ? now.toLocaleTimeString('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit', hour12: true })
+    : null
+
+  return (
+    <section className="region region-cal" style={{ display: 'flex', flexDirection: 'column' }}>
+      <RegionHead title="schedule" right={loading ? 'loading' : scheduledLabel} />
+
+      {/* Seven days, hung off one hairline — a strip, not seven buttons. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 'var(--s4)' }}>
         {days.map(({ key, dayName, dayNum }) => {
           const isToday = key === todayKey
           const isSelected = key === selectedDay
@@ -106,79 +105,103 @@ export default function Calendar() {
             <button
               key={key}
               onClick={() => setSelectedDay(key)}
-              className={isSelected ? undefined : 'tap'}
               aria-pressed={isSelected}
               style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                padding: '7px 2px 6px',
-                background: isSelected ? 'var(--accent-dim)' : 'transparent',
-                border: 'none',
-                borderRadius: 'var(--radius-xs)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--s1)',
+                padding: 'var(--s2) 0',
+                background: 'transparent', border: 0, borderRadius: 0,
+                borderBottom: `1px solid ${isSelected ? 'var(--champagne)' : 'var(--rule)'}`,
                 cursor: 'pointer',
-                gap: 2,
               }}
             >
-              <span style={{
-                fontSize: 'var(--text-xs)', fontWeight: 500,
-                color: isToday ? 'var(--accent)' : 'var(--ink-3)',
+              <span className="mono" style={{
+                fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase',
+                color: isSelected ? 'var(--champagne)' : 'var(--slate)',
               }}>
                 {dayName}
               </span>
-              <span style={{
-                fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)', fontWeight: 500,
-                color: isSelected ? 'var(--accent)' : isToday ? 'var(--ink-6)' : 'var(--ink-5)',
+              <span className="mono" style={{
+                fontSize: 15,
+                color: isSelected ? 'var(--champagne)' : isToday ? 'var(--ivory)' : 'var(--ash)',
               }}>
                 {dayNum}
               </span>
               <span style={{
-                width: 4, height: 4, borderRadius: '50%',
-                background: hasEvents ? (isSelected ? 'var(--accent)' : 'var(--ink-3)') : 'transparent',
+                width: 3, height: 3,
+                background: hasEvents ? (isSelected ? 'var(--champagne)' : 'var(--slate)') : 'transparent',
               }} />
             </button>
           )
         })}
       </div>
 
-      {/* Event list */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {error && <ErrorRow message={error} onRetry={load} />}
+      {error && <ErrorRow message={error} onRetry={load} />}
 
-        {!loading && !error && selectedEvents.length === 0 && (
-          <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink-3)', padding: '8px 6px' }}>
-            Nothing on the calendar.
-          </div>
-        )}
+      {!loading && !error && selectedEvents.length === 0 && (
+        <div style={{ fontSize: 13, color: 'var(--slate)', padding: 'var(--s2) 0' }}>No events.</div>
+      )}
 
-        {selectedEvents.map(ev => {
-          const isPast = !ev.allDay && new Date(ev.end) < now
-          return (
-            <div
-              key={ev.id}
-              className="tile"
-              style={{
-                display: 'flex', flexDirection: 'column', gap: 3,
-                padding: '9px 12px',
-                opacity: isPast ? 0.45 : 1,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
-                <span className="meta" style={{ color: 'var(--accent)', flexShrink: 0 }}>
-                  {formatTime(ev.start, ev.allDay)}
-                </span>
-                <span style={{ fontSize: 'var(--text-base)', color: 'var(--ink-6)', lineHeight: 1.4, fontWeight: 500 }}>
-                  {ev.title}
-                </span>
-              </div>
-              {ev.location && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, paddingLeft: 1 }}>
-                  <MapPin size={11} color="var(--ink-3)" />
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)' }}>{ev.location}</span>
+      {/* The day hangs off a vertical time rail: each slot ticks onto it, and
+          the now-mark is a single dot on the same line. */}
+      {selectedEvents.length > 0 && (
+        <div style={{
+          flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column',
+          borderLeft: '1px solid var(--rule)',
+          paddingLeft: 'var(--s4)', marginLeft: 'var(--s4)',
+        }}>
+          {selectedEvents.map((ev, i) => {
+            const isPast = !ev.allDay && new Date(ev.end) < now
+            const nextStartsAfterNow = nowMark
+              && !isPast
+              && (i === 0 || (selectedEvents[i - 1].end && new Date(selectedEvents[i - 1].end) < now))
+            return (
+              <div key={ev.id}>
+                {nextStartsAfterNow && (
+                  <div style={{ position: 'relative', padding: 'var(--s1) 0' }}>
+                    <span style={{
+                      position: 'absolute', left: 'calc(var(--s4) * -1 - 3px)', top: '50%',
+                      width: 5, height: 5, background: 'var(--champagne)',
+                    }} />
+                    <span className="mono" style={{
+                      fontSize: 10, letterSpacing: '0.14em', color: 'var(--champagne)',
+                    }}>
+                      NOW {nowMark}
+                    </span>
+                  </div>
+                )}
+                <div style={{ position: 'relative', padding: 'var(--s2) 0 var(--s3)' }}>
+                  {/* the tick onto the rail */}
+                  <span style={{
+                    position: 'absolute', left: 'calc(var(--s4) * -1 - 1px)', top: 15,
+                    width: 'var(--s3)', height: 1, background: 'var(--rule)',
+                  }} />
+                  <div className="mono" style={{
+                    fontSize: 10.5, letterSpacing: '0.06em',
+                    color: isPast ? 'var(--slate)' : 'var(--royal)',
+                  }}>
+                    {formatTime(ev.start, ev.allDay)}
+                  </div>
+                  <div style={{
+                    fontSize: 13.5, marginTop: 2,
+                    color: isPast ? 'var(--slate)' : 'var(--ivory)',
+                    overflowWrap: 'anywhere',
+                  }}>
+                    {ev.title}
+                  </div>
+                  {ev.location && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 'var(--s1)',
+                      fontSize: 11.5, color: 'var(--slate)',
+                    }}>
+                      <MapPin size={9} /> {ev.location}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
   )
 }

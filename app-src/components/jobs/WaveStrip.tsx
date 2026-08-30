@@ -53,7 +53,7 @@ export default function WaveStrip({ apps }: { apps: Application[] }) {
               <span style={{ width: 72, flexShrink: 0, fontSize: 13, color: 'var(--ink-6)' }}>{w.wave}</span>
 
               {/* Proportional bar: in-flight / open / still waiting */}
-              <div style={{ flex: 1, display: 'flex', height: 8, borderRadius: 6, overflow: 'hidden', background: 'var(--ink-1)', minWidth: 60 }}>
+              <div style={{ flex: 1, display: 'flex', height: 8, borderRadius: 0, overflow: 'hidden', background: 'var(--ink-1)', minWidth: 60 }}>
                 {([
                   [w.inFlight, STATUS_COLOR.applied],
                   [w.open,     STATUS_COLOR.open],
@@ -65,7 +65,7 @@ export default function WaveStrip({ apps }: { apps: Application[] }) {
               </div>
 
               <span style={{
-                flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)',
+                flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 11,
                 color: 'var(--ink-4)', fontVariantNumeric: 'tabular-nums',
               }}>
                 {w.inFlight}/{w.total} in flight

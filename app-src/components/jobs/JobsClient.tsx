@@ -17,18 +17,19 @@ function Toggle<T extends string>({
   value, options, onChange, label,
 }: { value: T; options: readonly (readonly [T, string])[]; onChange: (v: T) => void; label: string }) {
   return (
-    <div role="group" aria-label={label} style={{ display: 'flex', gap: 2, background: 'var(--ink-1)', borderRadius: 999, padding: 3 }}>
+    // Segmented controls are words with a rule under the chosen one.
+    <div role="group" aria-label={label} style={{ display: 'flex', gap: 'var(--s3)' }}>
       {options.map(([v, text]) => (
         <button
           key={v}
           onClick={() => onChange(v)}
           aria-pressed={value === v}
-          className="tap"
+          className="mono"
           style={{
-            cursor: 'pointer', padding: '5px 14px', borderRadius: 999, border: 'none',
-            fontSize: 'var(--text-sm)', fontWeight: 500,
-            color: value === v ? 'var(--ink-6)' : 'var(--ink-4)',
-            background: value === v ? 'var(--ink-2)' : 'transparent',
+            cursor: 'pointer', padding: '0 0 2px', borderRadius: 0, background: 'none',
+            border: 0, borderBottom: `1px solid ${value === v ? 'var(--champagne)' : 'transparent'}`,
+            fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
+            color: value === v ? 'var(--ivory)' : 'var(--slate)',
           }}
         >
           {text}
@@ -149,8 +150,11 @@ export default function JobsClient() {
   const open = apps.find(a => a.id === openId) ?? null
 
   return (
-    <div style={{ padding: '16px 20px', width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+    <div style={{ padding: 'var(--s5)', width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--s6)' }}>
+      <div style={{
+        display: 'flex', alignItems: 'baseline', gap: 'var(--s5)', flexWrap: 'wrap',
+        paddingBottom: 'var(--s3)', borderBottom: '1px solid var(--rule)',
+      }}>
         <Toggle
           label="Job search view"
           value={view}
@@ -179,7 +183,7 @@ export default function JobsClient() {
             today={today}
             onStamp={(a, status) => patch(a.id, { portal_last_checked: today, ...(status ? { status } : {}) })}
           />
-          <div className="grid gap-3 items-start grid-cols-1 lg:grid-cols-2">
+          <div className="grid gap-6 items-start grid-cols-1 lg:grid-cols-2">
             <WaveStrip apps={apps} />
             <RhythmCard />
           </div>

@@ -31,7 +31,7 @@ function OpenPrompt({
       ref={ref}
       onClick={() => onAnswer(status)}
       style={{
-        flex: 1, cursor: 'pointer', padding: '8px 12px', borderRadius: 8,
+        flex: 1, cursor: 'pointer', padding: '8px 12px', borderRadius: 0,
         fontSize: 13, color: 'var(--ink-6)', background: 'var(--ink-1)',
         border: `1px solid ${STATUS_COLOR[status]}`,
       }}
@@ -44,7 +44,7 @@ function OpenPrompt({
     <>
       <div
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, background: 'oklch(0.12 0.01 250 / 0.6)', zIndex: 300 }}
+        style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 300 }}
       />
       <div
         role="dialog"
@@ -53,13 +53,13 @@ function OpenPrompt({
         style={{
           position: 'fixed', zIndex: 301, top: '50%', left: '50%',
           transform: 'translate(-50%, -50%)', width: 'min(340px, calc(100vw - 32px))',
-          background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
+          background: 'var(--tint)', border: '1px solid var(--glass-border)',
           borderRadius: 'var(--radius)', padding: 16,
           display: 'flex', flexDirection: 'column', gap: 12,
         }}
       >
         <div>
-          <div className="section-title">Checked today</div>
+          <div style={labelStyle}>Checked today</div>
           <div style={{ fontSize: 14, color: 'var(--ink-6)', marginTop: 6 }}>
             Is the {app.company_name} role open?
           </div>
@@ -74,8 +74,8 @@ function OpenPrompt({
           onClick={onClose}
           style={{
             alignSelf: 'flex-end', cursor: 'pointer', background: 'transparent',
-            border: 'none', fontSize: 'var(--text-sm)',
-            color: 'var(--ink-4)',
+            border: 'none', fontSize: 11, fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-4)',
           }}
         >
           Skip
@@ -142,7 +142,7 @@ export default function StaleStrip({
                 </span>
 
                 <span style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', flexShrink: 0,
+                  fontFamily: 'var(--font-mono)', fontSize: 11, flexShrink: 0,
                   color: d == null ? 'var(--danger)' : d >= threshold * 2 ? 'var(--danger)' : 'var(--warn)',
                   fontVariantNumeric: 'tabular-nums',
                 }}>
@@ -161,9 +161,9 @@ export default function StaleStrip({
                     aria-label={`Open ${app.company_name} portal and mark checked today`}
                     style={{
                       flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4,
-                      fontSize: 'var(--text-sm)', fontFamily: 'var(--font-mono)', textDecoration: 'none',
+                      fontSize: 11, fontFamily: 'var(--font-mono)', textDecoration: 'none',
                       color: 'var(--accent)', border: '1px solid var(--accent-border)',
-                      background: 'var(--accent-dim)', borderRadius: 'var(--radius-xs)', padding: '3px 8px',
+                      background: 'var(--accent-dim)', borderRadius: 0, padding: '3px 8px',
                     }}
                   >
                     Open <ExternalLink size={11} />
@@ -176,9 +176,9 @@ export default function StaleStrip({
                   title="Mark checked today"
                   style={{
                     flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4,
-                    cursor: 'pointer', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-mono)',
+                    cursor: 'pointer', fontSize: 11, fontFamily: 'var(--font-mono)',
                     color: 'var(--ink-5)', background: 'var(--ink-1)',
-                    border: 'none', borderRadius: 999, padding: '4px 11px',
+                    border: '1px solid var(--glass-border)', borderRadius: 0, padding: '3px 8px',
                   }}
                 >
                   <Check size={11} /> Checked

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowRight, Check } from 'lucide-react'
 import { dueLabel, TONE_COLOR } from '@/lib/taskDisplay'
 import StartFocusButton from './pomodoro/StartFocusButton'
-import { ErrorRow } from './jobs/ui'
+import { ErrorRow, RegionHead } from './jobs/ui'
 
 type Task = {
   id: string
@@ -41,11 +41,9 @@ function place(anchor: HTMLElement, height: number): Placement {
 }
 
 /**
- * The card clips its children (`overflow: hidden`, for the rounded header
- * border), so an absolutely-positioned tooltip on the last row got sliced off
- * at the card's bottom edge. Portalling to <body> with fixed coordinates takes
- * it out of that clipping context entirely, and lets it flip above the row
- * when it would otherwise run off the bottom of the window.
+ * Portalled to <body> with fixed coordinates so no clipping or stacking
+ * context upstream can slice it off, and so it can flip above the row when it
+ * would otherwise run off the bottom of the window.
  */
 function DescriptionTooltip({ anchor, text }: { anchor: HTMLElement; text: string }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -72,11 +70,9 @@ function DescriptionTooltip({ anchor, text }: { anchor: HTMLElement; text: strin
         position: 'fixed', top: pos.top, left: pos.left, width: pos.width,
         maxHeight: `calc(100vh - ${pos.top + TOOLTIP_INSET}px)`, overflowY: 'auto',
         zIndex: 60, pointerEvents: 'none',
-        padding: '8px 11px', borderRadius: 'var(--radius-xs)',
-        background: 'var(--ink-2)', border: '1px solid var(--glass-border)',
-        backdropFilter: 'blur(16px)',
-        boxShadow: '0 8px 24px oklch(0 0 0 / 0.4)',
-        fontSize: 'var(--text-sm)', lineHeight: 1.5, color: 'var(--ink-5)',
+        padding: 'var(--s2)', borderRadius: 0,
+        background: 'var(--tint)', border: '1px solid var(--rule)',
+        fontSize: 12, lineHeight: 1.45, color: 'var(--ash)',
         whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
       }}
     >
@@ -139,118 +135,97 @@ export default function TodayTasks() {
   }
 
   return (
-    <div className="card" style={{ minHeight: 160 }}>
-      {/* Header. The divider under it is gone — the padding does that job, and
-          three stacked widgets with ruled headers read as a form. */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 18px 8px',
-      }}>
-        <span className="panel-title">Today</span>
-        <button
-          className="tap"
-          onClick={() => router.push('/tasks')}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer', borderRadius: 999,
-            color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 4,
-            fontSize: 'var(--text-sm)', padding: '3px 8px',
-          }}
-        >
-          All <ArrowRight size={13} />
-        </button>
-      </div>
+    <section className="region region-log">
+      <RegionHead title="today" right={tasks.length > 0 ? `${tasks.length} open` : undefined} />
 
-      {/* Body */}
-      <div style={{ padding: '2px 12px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {error && <ErrorRow message={error} onRetry={load} />}
+      {error && <ErrorRow message={error} onRetry={load} />}
 
-        {loading && !error && (
-          <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink-3)', padding: '8px 6px' }}>
-            Loading…
-          </div>
-        )}
+      {loading && !error && (
+        <div style={{ fontSize: 13, color: 'var(--slate)', padding: 'var(--s2) 0' }}>Loading…</div>
+      )}
 
-        {!loading && !error && tasks.length === 0 && (
-          <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink-3)', padding: '8px 6px' }}>
-            Nothing scheduled for today — enjoy it.
-          </div>
-        )}
+      {!loading && !error && tasks.length === 0 && (
+        <div style={{ fontSize: 13, color: 'var(--slate)', padding: 'var(--s2) 0' }}>
+          No key tasks for today.
+        </div>
+      )}
 
-        {tasks.map(task => (
+      {tasks.map(task => {
+        const due = dueLabel(task)
+        return (
           <div
             key={task.id}
+            className="row-hover row-line"
             onMouseEnter={e => setHovered({ id: task.id, el: e.currentTarget })}
             onMouseLeave={() => setHovered(h => (h?.id === task.id ? null : h))}
             style={{
-              display: 'flex', alignItems: 'center', gap: 7, position: 'relative',
+              display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr) auto',
+              gap: 'var(--s3)', alignItems: 'baseline',
+              padding: 'var(--s2) 0', position: 'relative',
             }}
           >
-            {/* Complete button */}
+            {/* The completion circle — a target, so it is the one round thing. */}
             <button
               onClick={e => completeTask(e, task.id)}
               disabled={completing.has(task.id)}
+              className="check-circle"
+              data-done={completing.has(task.id)}
               title="Mark complete" aria-label="Mark complete"
-              className="tap"
-              style={{
-                flexShrink: 0,
-                width: 20, height: 20,
-                borderRadius: 999,
-                border: '1.5px solid var(--ink-3)',
-                background: completing.has(task.id) ? 'var(--accent)' : 'transparent',
-                cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--accent)',
-              }}
+              style={{ alignSelf: 'center' }}
             >
-              {completing.has(task.id) && <Check size={12} strokeWidth={3} color="var(--ink-0)" />}
+              <Check size={8} strokeWidth={3} />
             </button>
 
-            {/* Start a focus session on this task */}
-            <StartFocusButton taskId={task.id} taskTitle={task.title} size={16} />
-
-            {/* Task row */}
+            {/* The line itself: mark, title, tag — read as one sentence. */}
             <button
               onClick={() => openTask(task.id)}
-              className="tile"
               style={{
-                flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-                padding: '9px 12px',
-                cursor: 'pointer', textAlign: 'left', minWidth: 0,
+                minWidth: 0, display: 'block', background: 'none', border: 0, padding: 0,
+                cursor: 'pointer', textAlign: 'left',
+                fontSize: 13.5, color: 'var(--ivory)', lineHeight: 1.35,
+                overflowWrap: 'anywhere',
               }}
             >
-              <span style={{ color: 'var(--accent)', fontSize: 'var(--text-sm)', flexShrink: 0 }}>★</span>
-              <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-base)', color: 'var(--ink-6)', lineHeight: 1.4, overflowWrap: 'anywhere' }}>
-                {task.title}
-              </span>
-              {/* Points are a bare number in the gutter, not a chip. They rank
-                  the row; they don't need to be boxed to do that. */}
+              {/* One line of text, so a long title wraps under itself rather
+                  than pushing the star and the point count onto rows of
+                  their own. */}
+              <span style={{ color: 'var(--rose)', fontSize: 10, marginRight: 6 }}>★</span>
+              {task.title}
               {task.points != null && (
-                <span className="meta" style={{ color: 'var(--ink-4)', flexShrink: 0 }}>
+                <span className="mono" style={{ fontSize: 11, color: 'var(--slate)', marginLeft: 8 }}>
                   {task.points}pt
                 </span>
               )}
-              {(() => {
-                const due = dueLabel(task)
-                if (!due) return null
-                const color = TONE_COLOR[due.tone]
-                return (
-                  <span
-                    className="chip"
-                    style={{ color, background: `color-mix(in oklch, ${color} 15%, transparent)` }}
-                  >
-                    {due.text}
-                  </span>
-                )
-              })()}
             </button>
 
-            {/* Description tooltip — portalled, so the card's overflow can't clip it */}
+            <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--s3)', whiteSpace: 'nowrap' }}>
+              {due && (
+                <span className="mono" style={{ fontSize: 11, letterSpacing: '0.03em', color: TONE_COLOR[due.tone] }}>
+                  {due.text}
+                </span>
+              )}
+              <StartFocusButton taskId={task.id} taskTitle={task.title} size={16} />
+            </span>
+
+            {/* Description tooltip — portalled, so nothing upstream can clip it */}
             {hovered?.id === task.id && task.description && (
               <DescriptionTooltip anchor={hovered.el} text={task.description} />
             )}
           </div>
-        ))}
-      </div>
-    </div>
+        )
+      })}
+
+      <button
+        onClick={() => router.push('/tasks')}
+        className="quiet-link"
+        style={{
+          display: 'flex', alignItems: 'baseline', gap: 'var(--s3)',
+          padding: 'var(--s3) 0 0', background: 'none', border: 0,
+          color: 'var(--slate)', fontSize: 13, cursor: 'pointer',
+        }}
+      >
+        <ArrowRight size={11} /> all tasks
+      </button>
+    </section>
   )
 }
