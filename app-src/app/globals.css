@@ -450,7 +450,17 @@ input, textarea, select, button { font-family: inherit; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .sched-what { font-size: 13px; line-height: 1.5; color: var(--ash); overflow-wrap: anywhere; }
+/* The right slot carries a word and sometimes a ▶ beside it, so it is a flex
+   row hanging off the right edge rather than right-aligned text. Baseline,
+   like the other three, or the button would sit the line askew. */
 .sched-rt {
+  display: flex; align-items: baseline; justify-content: flex-end; gap: var(--s2);
   font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
-  color: var(--slate); text-align: right; white-space: nowrap;
+  color: var(--slate); white-space: nowrap;
 }
+
+/* A 3px rule with a filled head — the only bar in the app that is a fraction
+   rather than a heat value, so it borrows no colour from the habit ramp. */
+.wbar { height: 3px; background: var(--tint-2); }
+.wbar i { display: block; height: 100%; transition: width 0.2s; }
+@media (prefers-reduced-motion: reduce) { .wbar i { transition: none; } }

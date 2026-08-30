@@ -4,20 +4,38 @@ import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import Markdown, { inline } from '@/lib/markdown'
 import {
-  clock, committedMinutes, dayTitle, longHours, meridiem, overlaps,
-  type DayStatus, type WeekDay, type WeekRow,
+  clock, committedMinutes, dayKey, dayTitle, entityCode, longHours, matchTask, meridiem,
+  overlaps, rowEntity, rowTitle,
+  type DayStatus, type Entity, type MatchableTask, type WeekDay, type WeekRow,
 } from '@/lib/weekDoc'
+import StartFocusButton from '../pomodoro/StartFocusButton'
 import { cardStyle, Empty, RegionHead } from '../jobs/ui'
 
 function Schedule({
-  day, checked, onToggle,
-}: { day: WeekDay; checked: Set<string>; onToggle: ((row: WeekRow, next: boolean) => void) | null }) {
+  day, checked, onToggle, tasks, vocabulary,
+}: {
+  day: WeekDay
+  checked: Set<string>
+  onToggle: ((row: WeekRow, next: boolean) => void) | null
+  tasks: MatchableTask[]
+  vocabulary: Entity[]
+}) {
+  const date = dayKey(day)
+
   return (
     <div className="sched">
       {day.rows.map((row) => {
         // A collision inside the day is the thing the flat table states as a
         // footnote and never shows — two 🔵 meetings sitting inside a class.
         const clash = day.rows.some((other) => other.id !== row.id && overlaps(row, other))
+        // A row is an hour spent on something, not a due date, so the day it
+        // sits on never disqualifies a task — which is why the bar to clear is
+        // higher here than it is for a deadline (see `matchTask`).
+        const task = date
+          ? matchTask({ title: rowTitle(row), date }, tasks, {
+              requireDate: false, threshold: 0.8, minTokens: 2,
+            })
+          : null
         return (
           <Row
             key={row.id}
@@ -25,6 +43,8 @@ function Schedule({
             clash={clash}
             done={checked.has(row.id)}
             onToggle={onToggle}
+            task={task}
+            entity={rowEntity(row, vocabulary)}
           />
         )
       })}
@@ -33,12 +53,14 @@ function Schedule({
 }
 
 function Row({
-  row, clash, done, onToggle,
+  row, clash, done, onToggle, task, entity,
 }: {
   row: WeekRow
   clash: boolean
   done: boolean
   onToggle: ((row: WeekRow, next: boolean) => void) | null
+  task: MatchableTask | null
+  entity: Entity | null
 }) {
   const when =
     row.kind === 'timed' ? `${clock(row.start)}–${clock(row.end)}${meridiem(row.end)}`
@@ -82,11 +104,25 @@ function Row({
       >
         {inline(row.rawWhat, row.id)}
       </span>
-      {/* The right slot. Overlaps are the only thing that claims it today; a
-          matched task's state and the row's entity land here next (PLAN §4C),
-          which is why the column exists before it is full. */}
-      <span className="sched-rt" style={clash ? { color: 'var(--coral)' } : undefined}>
-        {clash ? 'overlaps' : ''}
+      {/* The right slot, in priority order: a collision is the only thing here
+          that is *wrong*, so it outranks everything; then the fact that a real
+          task row is behind this hour; then, failing both, what the hour is
+          for. Only one of the three ever shows — three tags on a schedule line
+          is a legend, not a schedule. */}
+      <span className="sched-rt">
+        {clash ? (
+          <span style={{ color: 'var(--coral)' }}>overlaps</span>
+        ) : task ? (
+          <>
+            <span title={`Tracked as “${task.title}”`}>tracked</span>
+            {/* The ▶ rides along free: a row joined to a task can start a focus
+                session against it, and the time lands under the task rather
+                than under nothing. */}
+            <StartFocusButton taskId={task.id} taskTitle={task.title} className="" />
+          </>
+        ) : entity ? (
+          <span title={entity.name}>{entityCode(entity).toLowerCase()}</span>
+        ) : null}
       </span>
     </>
   )
@@ -101,12 +137,14 @@ function Row({
  * spends the whole column on it.
  */
 export default function DaySection({
-  day, status, checked, onToggle,
+  day, status, checked, onToggle, tasks, vocabulary,
 }: {
   day: WeekDay
   status: DayStatus
   checked: Set<string>
   onToggle: ((row: WeekRow, next: boolean) => void) | null
+  tasks: MatchableTask[]
+  vocabulary: Entity[]
 }) {
   const [showProse, setShowProse] = useState(status === 'today')
   const minutes = committedMinutes(day)
@@ -127,7 +165,7 @@ export default function DaySection({
       )}
 
       {day.rows.length > 0
-        ? <Schedule day={day} checked={checked} onToggle={onToggle} />
+        ? <Schedule day={day} checked={checked} onToggle={onToggle} tasks={tasks} vocabulary={vocabulary} />
         : <Empty>Nothing scheduled.</Empty>}
 
       {day.prose && (

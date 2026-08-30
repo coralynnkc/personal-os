@@ -4,13 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Markdown from '@/lib/markdown'
 import { localToday } from '@/lib/taskDisplay'
 import {
-  carriedOver, committedMinutes, dayChipParts, dayKey, dayStatus, formatHours, weekDates,
-  type MatchableTask, type PlanningDoc, type WeekRow,
+  carriedOver, committedMinutes, dayChipParts, dayKey, dayStatus, entityVocabulary,
+  formatHours, weekDates,
+  type Entity, type MatchableTask, type PlanningDoc, type WeekRow,
 } from '@/lib/weekDoc'
 import { cardStyle, ErrorRow, labelStyle } from '../jobs/ui'
 import CarriesOver from './CarriesOver'
 import DaySection from './DaySection'
 import DeadlineStrip from './DeadlineStrip'
+import EntityLoad from './EntityLoad'
 
 type Index = { slug: string; title: string | null }
 type Payload = { week: PlanningDoc | null; weeks: Index[]; semester: Index[] }
@@ -18,6 +20,9 @@ type Payload = { week: PlanningDoc | null; weeks: Index[]; semester: Index[] }
 export default function WeekClient() {
   const [data, setData] = useState<Payload | null>(null)
   const [tasks, setTasks] = useState<MatchableTask[]>([])
+  // The names the schedule's rows are read for. Entities are also the
+  // job-search inventory, so this is not all of them — see `entityVocabulary`.
+  const [entities, setEntities] = useState<Entity[]>([])
   const [error, setError] = useState<string | null>(null)
   // Which rows are done, by day date. Lives in daily_logs.notes.week, so it is
   // state *about* the document rather than in it — the .md file stays the
@@ -31,9 +36,10 @@ export default function WeekClient() {
   const load = useCallback(async () => {
     setError(null)
     try {
-      const [docRes, taskRes] = await Promise.all([
+      const [docRes, taskRes, entityRes] = await Promise.all([
         fetch('/api/documents'),
         fetch('/api/tasks?status=open'),
+        fetch('/api/entities'),
       ])
       if (!docRes.ok) throw new Error(`Documents failed (${docRes.status})`)
       const payload: Payload = await docRes.json()
@@ -42,6 +48,10 @@ export default function WeekClient() {
       // wrong rather than empty — so a task failure is an error too.
       if (!taskRes.ok) throw new Error(`Tasks failed (${taskRes.status})`)
       setTasks(await taskRes.json())
+      // Same reasoning: without entities a row that *is* ActBlue work renders
+      // as an untagged row, which reads as "this belongs to nothing".
+      if (!entityRes.ok) throw new Error(`Entities failed (${entityRes.status})`)
+      setEntities(await entityRes.json())
 
       // The dates come out of the document, so this is a second round trip
       // rather than a third parallel one. A day with no boxes ticked simply
@@ -85,6 +95,7 @@ export default function WeekClient() {
   }, [checked])
 
   const days = data?.week?.parsed?.days
+  const vocabulary = useMemo(() => entityVocabulary(entities), [entities])
   const statuses = useMemo(() => {
     const today = localToday()
     return (days ?? []).map((d) => dayStatus(d, today))
@@ -202,9 +213,12 @@ export default function WeekClient() {
           status={statuses[selectedIndex]}
           checked={new Set(selectedKey ? checked[selectedKey] ?? [] : [])}
           onToggle={selectedKey ? (row, next) => toggle(selectedKey, row, next) : null}
+          tasks={tasks}
+          vocabulary={vocabulary}
         />
         <div className="week-stack">
           <DeadlineStrip deadlines={parsed.deadlines} tasks={tasks} />
+          <EntityLoad days={parsed.days} vocabulary={vocabulary} />
           <CarriesOver items={carriedOver(parsed.days, checked)} />
         </div>
       </div>
