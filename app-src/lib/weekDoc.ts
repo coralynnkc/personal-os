@@ -16,9 +16,10 @@ import { rowSkipped, rowTitle } from './taskMatch.mjs'
  * Re-exported so the rest of the app still has one place to import from.
  */
 export {
-  chosenArm, matchTask, rowSkipped, rowTask, rowTitle, rowWhat, scoreTask, tokens, ROW_MATCH,
+  chosenArm, matchTask, rowSkipped, rowTask, rowTitle, rowWhat, scoreTask, suggestTasks, tokens,
+  NO_TASK, ROW_MATCH,
 } from './taskMatch.mjs'
-export type { Matchable, MatchOptions, Score } from './taskMatch.d.mts'
+export type { Matchable, MatchOptions, Score, Suggestion } from './taskMatch.d.mts'
 
 /**
  * A fork the document states and the week resolves. `if` is the arm the
@@ -180,12 +181,20 @@ export type Carried = { day: WeekDay; row: WeekRow; choice?: string }
 
 /**
  * Everything the app remembers about one day of the plan: which rows got
- * checked off, and which way each fork went. Both are keyed by row id and both
- * live in `daily_logs.notes.week`, so they travel together.
+ * checked off, which way each fork went, and which task each row was joined to
+ * by hand. All three are keyed by row id and all three live in
+ * `daily_logs.notes.week`, so they travel together.
+ *
+ * `links` holds a task id, or `NO_TASK` for the row you looked at and said
+ * nothing tracks — a row with no entry at all is still the matcher's to guess.
  */
-export type DayState = { checked: string[]; branches: Record<string, string> }
+export type DayState = {
+  checked: string[]
+  branches: Record<string, string>
+  links: Record<string, string>
+}
 
-export const EMPTY_DAY: DayState = { checked: [], branches: {} }
+export const EMPTY_DAY: DayState = { checked: [], branches: {}, links: {} }
 
 export function dayState(state: Record<string, DayState>, key: string | null): DayState {
   return (key && state[key]) || EMPTY_DAY
@@ -212,18 +221,18 @@ export function carriedOver(
   days: WeekDay[], state: Record<string, DayState>,
   { today = localToday(), isDone }: {
     today?: string
-    isDone?: (day: WeekDay, row: WeekRow, choice?: string) => boolean
+    isDone?: (day: WeekDay, row: WeekRow, choice?: string, link?: string) => boolean
   } = {},
 ): Carried[] {
   const out: Carried[] = []
   for (const day of days) {
     if (dayStatus(day, today) !== 'past') continue
-    const { checked, branches } = dayState(state, dayKey(day))
+    const { checked, branches, links } = dayState(state, dayKey(day))
     if (!checked.length) continue
     for (const row of day.rows) {
       const choice = branches[row.id]
       if (checked.includes(row.id) || rowSkipped(row, choice)) continue
-      if (isDone?.(day, row, choice)) continue
+      if (isDone?.(day, row, choice, links[row.id])) continue
       out.push({ day, row, choice })
     }
   }

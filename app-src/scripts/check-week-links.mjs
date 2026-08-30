@@ -9,9 +9,10 @@
  * the failure is almost always a wording drift — `HW` against `Homework` — and
  * you cannot see which word from the tab itself.
  *
- * This asks the *same* matcher the app asks (`lib/taskMatch.mjs`), then, for
- * anything unmatched, reports the closest task and the exact tokens that were
- * missing. It also flags the opposite hazard — a *weak* link, one that only
+ * This asks the *same* matcher the app asks (`lib/taskMatch.mjs`), and reads
+ * the same hand-written links out of `daily_logs.notes.week.links`, then, for
+ * anything still unmatched, reports the closest task and the exact tokens that
+ * were missing. It also flags the opposite hazard — a *weak* link, one that only
  * cleared the bar because the task happened to be due that day, which ticks
  * through to work you didn't mean. Read-only: it never writes to Supabase.
  *
@@ -30,7 +31,9 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { matchTask, rowSkipped, rowTitle, scoreTask, tokens, ROW_MATCH } from '../lib/taskMatch.mjs'
+import {
+  matchTask, rowSkipped, rowTitle, scoreTask, tokens, NO_TASK, ROW_MATCH,
+} from '../lib/taskMatch.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
@@ -103,9 +106,12 @@ if (!doc.parsed?.days?.length) {
 }
 
 /**
- * What the app remembers about the week — only the resolved forks matter here.
- * An unanswered fork's title is the whole two-futures sentence, which no task
- * will ever match, and saying so is more useful than scoring it.
+ * What the app remembers about the week: the resolved forks, and the links the
+ * week wrote by hand. An unanswered fork's title is the whole two-futures
+ * sentence, which no task will ever match, and saying so is more useful than
+ * scoring it. A hand link is the opposite — it is already settled, and a
+ * report that called it a miss would be telling you to fix something you have
+ * already fixed.
  */
 const dates = doc.parsed.days.map((d) => d.dates[0]).filter(Boolean)
 const { data: logs } = await db
@@ -115,7 +121,11 @@ const { data: logs } = await db
   .in('log_date', dates.length ? dates : ['1970-01-01'])
 
 const branches = {}
-for (const log of logs ?? []) branches[log.log_date] = log.notes?.week?.branches ?? {}
+const links = {}
+for (const log of logs ?? []) {
+  branches[log.log_date] = log.notes?.week?.branches ?? {}
+  links[log.log_date] = log.notes?.week?.links ?? {}
+}
 
 /** The closest thing to a match, whether or not it cleared the bar. */
 function nearest(title, date) {
@@ -147,6 +157,27 @@ for (const day of doc.parsed.days) {
       findings.push({ ...base, status: 'open-fork', note: 'fork unanswered — the row is still both futures, so nothing can match it' })
       continue
     }
+    // A link chosen by hand settles the row in both directions, so nothing
+    // below it runs — the matcher's opinion of a row someone already answered
+    // is not a finding.
+    const link = links[date]?.[row.id]
+    if (link === NO_TASK) {
+      findings.push({ ...base, status: 'hand-none', note: 'you said nothing tracks this row' })
+      continue
+    }
+    if (link) {
+      const task = (tasks ?? []).find((t) => t.id === link)
+      if (task) {
+        findings.push({
+          ...base,
+          status: 'hand-linked',
+          task: { id: task.id, title: task.title, done: Boolean(task.completed_at) },
+        })
+        continue
+      }
+      findings.push({ ...base, status: 'dead-link', note: 'linked to a task that no longer exists — the app has gone back to guessing' })
+    }
+
     if (tokens(title).length < ROW_MATCH.minTokens) {
       findings.push({ ...base, status: 'too-short', note: `"${title}" is under ${ROW_MATCH.minTokens} meaningful words` })
       continue
@@ -188,8 +219,10 @@ if (JSON_OUT) {
 }
 
 const by = (s) => findings.filter((f) => f.status === s)
-const linked = [...by('linked'), ...by('weak')]
-const shown = ALL ? findings : findings.filter((f) => f.status !== 'linked')
+const linked = [...by('linked'), ...by('weak'), ...by('hand-linked')]
+const shown = ALL
+  ? findings
+  : findings.filter((f) => f.status !== 'linked' && f.status !== 'hand-linked')
 
 console.log(`\n${doc.title ?? doc.slug}  ·  ${findings.length} rows  ·  ${linked.length} linked`)
 console.log(`threshold ${ROW_MATCH.threshold} — every meaningful word of a row's title must appear in the task's\n`)
@@ -198,13 +231,15 @@ let day = null
 for (const f of shown) {
   if (f.day !== day) { day = f.day; console.log(`  ${day}`) }
   const mark =
-    f.status === 'linked' ? (f.task.done ? '✓' : '·')
+    f.status === 'linked' || f.status === 'hand-linked' ? (f.task.done ? '✓' : '·')
     : f.status === 'weak' ? '!'
     : f.status === 'unlinked' ? '✗'
     : '?'
   console.log(`    ${mark} ${f.title}`)
   if (f.status === 'linked') {
     console.log(`        → ${f.task.title}${f.task.done ? '  (done)' : ''}`)
+  } else if (f.status === 'hand-linked') {
+    console.log(`        → ${f.task.title}${f.task.done ? '  (done)' : ''}  (linked by hand)`)
   } else if (f.status === 'weak') {
     console.log(`        → ${f.task.title}${f.task.done ? '  (done)' : ''}`)
     console.log(`        weak: scored ${f.score}, and only cleared ${ROW_MATCH.threshold} because the task is due this day`)
@@ -223,7 +258,7 @@ for (const f of shown) {
 
 const unlinked = by('unlinked').length
 const weak = by('weak').length
-console.log(`\n${linked.length} linked (${weak} weak) · ${unlinked} unlinked · ${by('open-fork').length} open forks · ${by('no-date').length} dateless · ${by('too-short').length} too short`)
+console.log(`\n${linked.length} linked (${weak} weak, ${by('hand-linked').length} by hand) · ${unlinked} unlinked · ${by('open-fork').length} open forks · ${by('no-date').length} dateless · ${by('too-short').length} too short`)
 if (weak) {
   console.log('\nA weak link ticks through to a task you may not have meant. Tighten the')
   console.log('row title (or the task\'s) until the words agree without the date carrying it.')
@@ -231,6 +266,7 @@ if (weak) {
 if (unlinked) {
   console.log('\nA miss is usually one word. Either rename the task to contain the row\'s')
   console.log('words, or push commentary in the row behind an em dash — only the text')
-  console.log('before the dash is matched.')
+  console.log('before the dash is matched. Or link the row by hand on the week tab —')
+  console.log('that answer sticks, and a re-sync never touches it.')
 }
 if (!ALL) console.log('\n(--all also lists the rows that matched.)')

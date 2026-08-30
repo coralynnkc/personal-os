@@ -127,8 +127,53 @@ export const ROW_MATCH = { requireDate: false, threshold: 0.8, minTokens: 2 }
  * writes through it, "carries over" has to know the row is finished, and the
  * link check reports on it — and four fuzzy matchers tuned separately would
  * drift.
+ *
+ * `link` is the week's own answer, from `daily_logs.notes.week.links`: the
+ * matcher is fuzzy and half the rows miss, so a row you joined by hand has to
+ * stay joined and never be re-guessed.
  */
-export function rowTask(row, date, tasks, choice) {
+export function rowTask(row, date, tasks, choice, link) {
+  // A link the week wrote by hand outranks the guess, in both directions:
+  // `NO_TASK` is the answer "nothing tracks this", and a link to a task that
+  // has since been deleted falls back to guessing rather than to nothing.
+  if (link === NO_TASK) return null
+  if (link) {
+    const linked = tasks.find((t) => t.id === link)
+    if (linked) return linked
+  }
   if (!date) return null
   return matchTask({ title: rowTitle(row, choice), date }, tasks, ROW_MATCH)
+}
+
+/**
+ * The link that says "nothing tracks this row".
+ *
+ * A hand link has to be able to say no as well as yes: the fuzzy matcher
+ * sometimes joins a row to a task that isn't it, and deleting the link would
+ * only let the same wrong match come straight back. So the stored value is
+ * either a task id or this — and clearing the link entirely (`null`) is the
+ * third thing, meaning "go back to guessing".
+ */
+export const NO_TASK = 'none'
+
+/**
+ * The tasks worth offering for a row, best first.
+ *
+ * `matchTask` answers yes or no at a high threshold, because a wrong automatic
+ * join is worse than none. A person choosing from a list is under no such
+ * constraint — they can see the near misses and pick — so this ranks instead
+ * of filtering: everything sharing a word with the row, ordered by how much of
+ * the row's title the task accounts for, with the open one ahead of the
+ * finished one on a tie.
+ */
+export function suggestTasks(target, tasks, { limit = 6 } = {}) {
+  return tasks
+    .map((task) => ({ task, ...scoreTask(target, task) }))
+    .filter((c) => c.missing.length < c.want.length)
+    .sort((a, b) => (
+      b.score - a.score
+      || Number(Boolean(a.task.completed_at)) - Number(Boolean(b.task.completed_at))
+      || a.task.title.localeCompare(b.task.title)
+    ))
+    .slice(0, limit)
 }

@@ -31,6 +31,14 @@ export function matchTask(
   target: Matchable, tasks: MatchableTask[], options?: MatchOptions,
 ): MatchableTask | null
 export const ROW_MATCH: Required<MatchOptions>
+export const NO_TASK: 'none'
 export function rowTask(
   row: WeekRow, date: string | null, tasks: MatchableTask[], choice?: string,
+  link?: string,
 ): MatchableTask | null
+
+/** A candidate for the picker: a task, and why it is being offered. */
+export type Suggestion = Score & { task: MatchableTask }
+export function suggestTasks(
+  target: Matchable, tasks: MatchableTask[], options?: { limit?: number },
+): Suggestion[]
