@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, ChevronLeft, ChevronRight, X, Trash2, Sun, Moon, Lock } from 'lucide-react'
 import { habitDateKey, USER_TZ } from '@/lib/dateKey'
+import {
+  CADENCE_COLOR, MAX_EVERY_DAYS, MIN_EVERY_DAYS,
+  byMostOverdue, cadenceState, normalizeEveryDays, type HabitKind,
+} from '@/lib/cadence'
 import { useDialog } from '@/lib/useDialog'
 import { ErrorRow } from './jobs/ui'
 
@@ -27,7 +31,12 @@ async function post(url: string, body: unknown) {
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type Level = { id: string; label: string }
-type HabitDef = { id: string; name: string; levels: Level[] }
+// `kind` is absent on every habit configured before PLAN §2, and absent means
+// daily — so nothing in habit_config has to be migrated to add cadence.
+type HabitDef = { id: string; name: string; levels: Level[]; kind?: HabitKind; everyDays?: number }
+type HabitDraft = { name: string; levels: Level[]; kind: HabitKind; everyDays: number }
+/** habitId → the last day it was done, YYYY-MM-DD. */
+type CadenceLog = Record<string, string>
 type SleepLog = { bedtime?: string; waketime?: string; hours?: number }
 type DayNotes = { habits: Record<string, number>; sleep?: SleepLog }
 type MonthLogs = Record<string, DayNotes> // YYYY-MM-DD → DayNotes
@@ -201,6 +210,7 @@ function ScoreRing({ score, size = 36 }: { score: number; size?: number }) {
 export default function HabitTracker() {
   const [habits, setHabits] = useState<HabitDef[]>([])
   const [logs, setLogs] = useState<MonthLogs>({})
+  const [cadence, setCadence] = useState<CadenceLog>({})
   const [storyPoints, setStoryPoints] = useState(0)
   const [monthStoryPoints, setMonthStoryPoints] = useState<Record<string, number>>({})
   const [view, setView] = useState<'today' | 'month'>('today')
@@ -228,6 +238,21 @@ export default function HabitTracker() {
   }, [])
 
   useEffect(() => { fetchConfig() }, [fetchConfig])
+
+  // ── Fetch cadence events ────────────────────────────────────────────────────
+
+  // Not part of fetchLogs: cadence rows are answered by the last event ever,
+  // which is not bounded by the month the grid happens to be showing.
+  const fetchCadence = useCallback(async () => {
+    try {
+      setCadence(await getJson('/api/habits/cadence'))
+    } catch (e) {
+      console.error('Failed to load cadence events:', e)
+      setError("Couldn't load your cadence habits.")
+    }
+  }, [])
+
+  useEffect(() => { fetchCadence() }, [fetchCadence])
 
   // ── Fetch logs for visible month ────────────────────────────────────────────
 
@@ -292,7 +317,8 @@ export default function HabitTracker() {
     fetchConfig()
     fetchLogs(year, month)
     fetchStoryPoints()
-  }, [fetchConfig, fetchLogs, fetchStoryPoints, year, month])
+    fetchCadence()
+  }, [fetchConfig, fetchLogs, fetchStoryPoints, fetchCadence, year, month])
 
   // ── Log a habit ─────────────────────────────────────────────────────────────
 
@@ -321,6 +347,36 @@ export default function HabitTracker() {
         if (previous === undefined) delete habits[habitId]
         else habits[habitId] = previous
         return { ...prev, [date]: { ...prev[date], habits } }
+      })
+      setError("Couldn't save that — tap it again.")
+    }
+  }
+
+  // ── Log a cadence event ─────────────────────────────────────────────────────
+
+  async function logCadence(habitId: string, undo: boolean) {
+    const previous = cadence[habitId]
+
+    setCadence(prev => {
+      const next = { ...prev }
+      // An undo only knows how to remove *today*; what was underneath it was a
+      // date we no longer hold, so refetch rather than guess at it.
+      if (undo) delete next[habitId]
+      else next[habitId] = today
+      return next
+    })
+
+    try {
+      await post('/api/habits/cadence', { habitId, date: today, undo })
+      setError(null)
+      if (undo) fetchCadence()
+    } catch (e) {
+      console.error('Failed to save cadence event:', e)
+      setCadence(prev => {
+        const next = { ...prev }
+        if (previous === undefined) delete next[habitId]
+        else next[habitId] = previous
+        return next
       })
       setError("Couldn't save that — tap it again.")
     }
@@ -359,12 +415,21 @@ export default function HabitTracker() {
     }
   }
 
-  async function addHabit(name: string, levels: Level[]) {
-    await saveHabits([...habits, { id: uid(), name, levels }], 'add')
+  /** One shape for both kinds: a cadence habit has a rhythm and no levels. */
+  function fromDraft(d: HabitDraft): Omit<HabitDef, 'id'> {
+    return d.kind === 'cadence'
+      ? { name: d.name, kind: 'cadence', everyDays: normalizeEveryDays(d.everyDays), levels: [] }
+      : { name: d.name, kind: 'daily', levels: d.levels }
   }
 
-  async function editHabit(id: string, name: string, levels: Level[]) {
-    await saveHabits(habits.map(h => h.id === id ? { ...h, name, levels } : h), 'save')
+  async function addHabit(draft: HabitDraft) {
+    await saveHabits([...habits, { id: uid(), ...fromDraft(draft) }], 'add')
+  }
+
+  async function editHabit(id: string, draft: HabitDraft) {
+    // Spread the new definition over the old one rather than merging into it,
+    // so switching a habit to cadence drops the levels it no longer has.
+    await saveHabits(habits.map(h => h.id === id ? { id: h.id, ...fromDraft(draft) } : h), 'save')
   }
 
   async function deleteHabit(id: string) {
@@ -382,11 +447,17 @@ export default function HabitTracker() {
   const todayLog = logs[today]
   const sleepLog = todayLog?.sleep
 
+  // Cadence habits are not daily obligations, so they stay out of the day
+  // score, the month grid and its averages — an empty cell under "laundry" on
+  // a Tuesday would be exactly the false negative PLAN §2 exists to remove.
+  const dailyHabits = habits.filter(h => h.kind !== 'cadence')
+  const cadenceHabits = habits.filter(h => h.kind === 'cadence')
+
   // All habits for display (specials first, user habits alphabetized)
   const allHabits = [
     { id: SLEEP_ID, name: 'Sleep', levels: SLEEP_LEVELS },
     { id: STORY_ID, name: 'Story Points', levels: STORY_LEVELS },
-    ...[...habits].sort((a, b) => a.name.localeCompare(b.name)),
+    ...[...dailyHabits].sort((a, b) => a.name.localeCompare(b.name)),
   ]
 
   const dayScore = computeDayScore(allHabits, todayLog, sleepLog, storyPoints)
@@ -455,8 +526,10 @@ export default function HabitTracker() {
           them. The only chrome is the hairline under each row. */}
       <div style={{ overflowY: 'auto', minWidth: 0 }}>
         {view === 'today'
-          ? <TodayView
-              habits={habits}
+          ? <>
+            <TodayView
+              habits={dailyHabits}
+              hasCadence={cadenceHabits.length > 0}
               allHabits={allHabits}
               todayLog={todayLog}
               sleepLog={sleepLog}
@@ -467,6 +540,15 @@ export default function HabitTracker() {
               onEdit={setEditingHabit}
               onDelete={deleteHabit}
             />
+            <CadenceSection
+              habits={cadenceHabits}
+              lastDone={cadence}
+              today={today}
+              onLog={logCadence}
+              onEdit={setEditingHabit}
+              onDelete={deleteHabit}
+            />
+          </>
           : <MonthView
               allHabits={allHabits}
               logs={logs}
@@ -481,14 +563,14 @@ export default function HabitTracker() {
 
       {showAddModal && (
         <HabitModal
-          onSave={(name, levels) => { addHabit(name, levels); setShowAddModal(false) }}
+          onSave={draft => { addHabit(draft); setShowAddModal(false) }}
           onClose={() => setShowAddModal(false)}
         />
       )}
       {editingHabit && (
         <HabitModal
           initial={editingHabit}
-          onSave={(name, levels) => { editHabit(editingHabit.id, name, levels); setEditingHabit(null) }}
+          onSave={draft => { editHabit(editingHabit.id, draft); setEditingHabit(null) }}
           onClose={() => setEditingHabit(null)}
         />
       )}
@@ -516,6 +598,7 @@ function formatTime(iso: string): string {
 
 function TodayView({
   habits,
+  hasCadence,
   allHabits,
   todayLog,
   sleepLog,
@@ -527,6 +610,7 @@ function TodayView({
   onDelete,
 }: {
   habits: HabitDef[]
+  hasCadence: boolean
   allHabits: HabitDef[]
   todayLog: DayNotes | undefined
   sleepLog: SleepLog | undefined
@@ -537,7 +621,9 @@ function TodayView({
   onEdit: (habit: HabitDef) => void
   onDelete: (id: string) => void
 }) {
-  if (habits.length === 0 && allHabits.length === 2) {
+  // Nothing daily configured — but the cadence section below may still have
+  // rows, and "No habits yet" over a list of them would be a lie.
+  if (habits.length === 0 && allHabits.length === 2 && !hasCadence) {
     return (
       <div style={{ textAlign: 'center', padding: '24px 0' }}>
         <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink-3)', marginBottom: 12 }}>No habits yet.</div>
@@ -694,6 +780,151 @@ function TodayView({
                 <Trash2 size={11} />
               </button>
             </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Cadence section ──────────────────────────────────────────────────────────
+
+/**
+ * The rows under the daily grid: name, how long it has been, a bar that decays
+ * toward the rhythm, and one tap that resets it. No streak — a streak counts
+ * consecutive days, and the whole point of these is that most days are
+ * correctly empty.
+ */
+function CadenceSection({
+  habits,
+  lastDone,
+  today,
+  onLog,
+  onEdit,
+  onDelete,
+}: {
+  habits: HabitDef[]
+  lastDone: CadenceLog
+  today: string
+  onLog: (id: string, undo: boolean) => void
+  onEdit: (habit: HabitDef) => void
+  onDelete: (id: string) => void
+}) {
+  if (habits.length === 0) return null
+
+  const rows = habits
+    .map(h => ({
+      habit: h,
+      name: h.name,
+      every: normalizeEveryDays(h.everyDays),
+      state: cadenceState(normalizeEveryDays(h.everyDays), lastDone[h.id] ?? null, today),
+    }))
+    .sort(byMostOverdue)
+
+  // The divider carries the one thing worth reading without reading the list.
+  const worst = rows[0]
+  const summary = worst.state.tone === 'fresh'
+    ? 'all fresh'
+    : `${worst.name.toLowerCase()}, ${worst.state.status}`
+
+  return (
+    <div style={{ marginTop: 'var(--s5)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)', marginBottom: 'var(--s1)' }}>
+        <span className="eyebrow">Cadence</span>
+        <span style={{ flex: 1, height: 1, background: 'var(--rule)' }} />
+        <span className="mono" style={{
+          fontSize: 'var(--text-xs)',
+          color: CADENCE_COLOR[worst.state.tone],
+        }}>
+          {summary}
+        </span>
+      </div>
+
+      {rows.map(({ habit, every, state }) => {
+        const doneToday = lastDone[habit.id] === today
+        const color = CADENCE_COLOR[state.tone]
+
+        return (
+          <div
+            key={habit.id}
+            className="row-hover"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(56px, 1fr) auto minmax(28px, 72px) auto auto',
+              alignItems: 'center', gap: 'var(--s2)',
+              padding: 'var(--s2) 0', borderBottom: '1px solid var(--rule-2)',
+            }}
+          >
+            <span
+              title={`${habit.name} — every ${every} day${every === 1 ? '' : 's'}`}
+              style={{
+                minWidth: 0, fontSize: 'var(--text-base)',
+                color: doneToday ? 'var(--ivory)' : 'var(--ash)',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}
+            >
+              {habit.name}
+            </span>
+
+            <span className="mono" style={{ fontSize: 'var(--text-xs)', color: 'var(--slate)' }}>
+              {state.elapsed}
+            </span>
+
+            {/* Elapsed time as decay. The bar is the only thing on the row that
+                reads at a glance, so it carries the colour. */}
+            <span style={{ height: 2, background: 'var(--tint-2)' }}>
+              <span style={{ display: 'block', height: '100%', width: `${state.ratio * 100}%`, background: color }} />
+            </span>
+
+            <span className="mono" style={{ fontSize: 'var(--text-xs)', color, textAlign: 'right', whiteSpace: 'nowrap' }}>
+              {state.status}
+            </span>
+
+            {/* Persistent, not a ghost action: one tap is the entire interface
+                of a cadence habit, and a hover-only target does not exist on a
+                phone. Edit and delete stay in the margin. */}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+              <button
+                onClick={() => onLog(habit.id, doneToday)}
+                className="tap mono"
+                aria-label={doneToday ? `Undo ${habit.name} for today` : `Mark ${habit.name} done today`}
+                style={{
+                  fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
+                  background: 'none', border: 0, borderRadius: 0, padding: '2px 0 2px var(--s1)',
+                  color: doneToday ? 'var(--champagne)' : 'var(--slate)', cursor: 'pointer',
+                }}
+              >
+                {doneToday ? 'undo' : 'done'}
+              </button>
+              <span className="ghost-action" style={{ display: 'flex', gap: 2 }}>
+                <button
+                  onClick={() => onEdit(habit)}
+                  className="tap"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 18, height: 18, borderRadius: 0,
+                    background: 'transparent', border: 'none',
+                    color: 'var(--ink-3)', cursor: 'pointer', fontSize: 'var(--text-sm)',
+                  }}
+                  title="Edit habit" aria-label={`Edit ${habit.name}`}
+                >
+                  ✎
+                </button>
+                <button
+                  onClick={() => onDelete(habit.id)}
+                  className="tap"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 18, height: 18, borderRadius: 0,
+                    background: 'transparent', border: 'none',
+                    color: 'var(--ink-3)', cursor: 'pointer',
+                  }}
+                  title="Delete habit" aria-label={`Delete ${habit.name}`}
+                >
+                  <Trash2 size={11} />
+                </button>
+              </span>
+            </span>
           </div>
         )
       })}
@@ -880,15 +1111,36 @@ function HabitModal({
   onClose,
 }: {
   initial?: HabitDef
-  onSave: (name: string, levels: Level[]) => void
+  onSave: (draft: HabitDraft) => void
   onClose: () => void
 }) {
   const [name, setName] = useState(initial?.name ?? '')
-  const [levels, setLevels] = useState<Level[]>(initial?.levels ?? [{ id: uid(), label: '' }])
+  const [levels, setLevels] = useState<Level[]>(
+    initial?.levels?.length ? initial.levels : [{ id: uid(), label: '' }]
+  )
+  const [kind, setKind] = useState<HabitKind>(initial?.kind === 'cadence' ? 'cadence' : 'daily')
+  // Held as a string so the field can be empty mid-edit rather than snapping
+  // back to a number the moment you clear it.
+  const [everyDays, setEveryDays] = useState(String(initial?.everyDays ?? 7))
   // The name field carries autoFocus, so the hook leaves focus where it is.
   const dialogRef = useDialog<HTMLDivElement>(onClose)
 
-  const canSubmit = name.trim().length > 0 && levels.every(l => l.label.trim().length > 0)
+  const every = Number(everyDays)
+  const everyValid = Number.isInteger(every) && every >= MIN_EVERY_DAYS && every <= MAX_EVERY_DAYS
+
+  const canSubmit = name.trim().length > 0 && (
+    kind === 'cadence' ? everyValid : levels.every(l => l.label.trim().length > 0)
+  )
+
+  function submit() {
+    if (!canSubmit) return
+    onSave({
+      name: name.trim(),
+      kind,
+      everyDays: every,
+      levels: levels.map(l => ({ ...l, label: l.label.trim() })),
+    })
+  }
 
   function addLevel() {
     if (levels.length < 5) setLevels(ls => [...ls, { id: uid(), label: '' }])
@@ -932,6 +1184,28 @@ function HabitModal({
             </button>
           </div>
 
+          {/* Which question the habit answers. A daily habit asks "did you,
+              today?"; a cadence habit asks "how long has it been?" — rhythm,
+              not deadline (PLAN §2). */}
+          <div style={{ display: 'flex', gap: 'var(--s3)', marginBottom: 14 }}>
+            {(['daily', 'cadence'] as const).map(k => (
+              <button
+                key={k}
+                onClick={() => setKind(k)}
+                aria-pressed={kind === k}
+                className="mono"
+                style={{
+                  fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
+                  background: 'none', padding: '0 0 2px', borderRadius: 0, border: 0,
+                  borderBottom: `1px solid ${kind === k ? 'var(--champagne)' : 'transparent'}`,
+                  color: kind === k ? 'var(--ivory)' : 'var(--slate)', cursor: 'pointer',
+                }}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+
           {/* Name */}
           <div style={{ marginBottom: 14 }}>
             <label htmlFor="habit-name" style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--ink-4)', marginBottom: 6 }}>Name</label>
@@ -940,8 +1214,8 @@ function HabitModal({
               autoFocus
               value={name}
               onChange={e => setName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && canSubmit && onSave(name.trim(), levels.map(l => ({ ...l, label: l.label.trim() })))}
-              placeholder="e.g. Exercise, Reading, Water"
+              onKeyDown={e => { if (e.key === 'Enter') submit() }}
+              placeholder={kind === 'cadence' ? 'e.g. Laundry, Sheets, Vacuum' : 'e.g. Exercise, Reading, Water'}
               style={{
                 width: '100%', padding: '9px 11px', borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--glass-border)', background: 'var(--ink-0)',
@@ -950,7 +1224,34 @@ function HabitModal({
             />
           </div>
 
-          {/* Levels */}
+          {/* Rhythm — the whole configuration of a cadence habit. */}
+          {kind === 'cadence' ? (
+            <div style={{ marginBottom: 14 }}>
+              <label htmlFor="habit-every" style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--ink-4)', marginBottom: 6 }}>
+                Every how many days?
+              </label>
+              <input
+                id="habit-every"
+                type="number"
+                min={MIN_EVERY_DAYS}
+                max={MAX_EVERY_DAYS}
+                value={everyDays}
+                onChange={e => setEveryDays(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') submit() }}
+                className="mono"
+                style={{
+                  width: 88, padding: '9px 11px', borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--glass-border)', background: 'var(--ink-0)',
+                  color: 'var(--ink-6)', fontSize: 'var(--text-base)', outline: 'none',
+                }}
+              />
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--slate)', marginTop: 6 }}>
+                No levels and no streak — the row shows how long it has been, and
+                one tap resets it.
+              </p>
+            </div>
+          ) : (
+          /* Levels */
           <div style={{ marginBottom: 14 }}>
             <span style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--ink-4)', marginBottom: 6 }}>
               Levels ({levels.length}/5)
@@ -991,6 +1292,7 @@ function HabitModal({
               </button>
             )}
           </div>
+          )}
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 8 }}>
@@ -1000,7 +1302,7 @@ function HabitModal({
               color: 'var(--ink-4)', fontSize: 'var(--text-base)', cursor: 'pointer',
             }}>Cancel</button>
             <button
-              onClick={() => canSubmit && onSave(name.trim(), levels.map(l => ({ ...l, label: l.label.trim() })))}
+              onClick={submit}
               disabled={!canSubmit}
               style={{
                 flex: 1, padding: '8px', borderRadius: 'var(--radius-sm)',

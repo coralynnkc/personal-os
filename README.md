@@ -46,6 +46,7 @@ Run the migrations in `app-src/supabase/migrations/` in your Supabase project's 
 - `0002_job_search.sql` — `applications` (the job-search pipeline)
 - `0003_pomodoro.sql` — `habit_config.pomodoro` (timer durations)
 - `0004_documents.sql` — `documents` (the synced week and semester planning docs)
+- `0005_cadence_habits.sql` — `habit_events` (habits with a rhythm rather than a day)
 
 All tables have RLS enabled; access goes through the service role key in API routes.
 
@@ -194,8 +195,9 @@ The `?key=` form exists because Claude's custom-connector UI has no field for a 
 | `complete_task` | Stamp `completed_at`; no-ops on an already-complete task |
 | `delete_task` | Permanently delete a task |
 | `list_entities` / `create_entity` | Projects, people and companies tasks hang off |
-| `get_habits` | Habit ids and level labels, for use with `log_habit` |
+| `get_habits` | Habit ids and level labels, plus cadence habits and how long it has been |
 | `log_habit` | Set a habit's level for a day; defaults to the 4am-rollover habit day |
+| `log_cadence` | Record that a cadence habit (laundry, sheets) was done; `undo` removes it |
 | `get_daily_log` | Habit levels and sleep for one day or a date range |
 
 ### Security

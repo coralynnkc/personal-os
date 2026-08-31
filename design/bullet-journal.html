@@ -172,9 +172,12 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .mgrid td i.l3 { background: #E7CFA7B3; } .mgrid td i.l4 { background: var(--champagne); }
 .mgrid td i.td { outline: 1px solid var(--ash); outline-offset: 1px; }
 
-.cad { display: grid; grid-template-columns: 1fr 32px 72px 52px; gap: var(--s3); align-items: center; padding: var(--s2) 0; border-bottom: 1px solid var(--rule-2); }
-.cad .nm { color: var(--ash); font-size: 13px; }
+.cad { display: grid; grid-template-columns: minmax(0,1fr) 32px 64px 48px auto; gap: var(--s3); align-items: center; padding: var(--s2) 0; border-bottom: 1px solid var(--rule-2); }
+.cad .nm { color: var(--ash); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
 .cad .st { text-align: right; }
+.cad .did { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--slate); padding: var(--s1) 0 var(--s1) var(--s1); }
+.cad .did:hover { color: var(--ivory); }
+.cad.just .did { color: var(--champagne); }
 .bar { height: 2px; background: var(--tint-2); }
 .bar i { display: block; height: 100%; background: var(--slate); }
 .cad.warn i { background: var(--amber); } .cad.warn .st { color: var(--amber); }
@@ -398,11 +401,11 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
           </div>
 
           <div class="divider"><span class="eyebrow">Cadence</span><span class="line"></span><span class="num late">vacuum, 7d over</span></div>
-          <div class="cad over"><span class="nm">Vacuum</span><span class="num">21d</span><span class="bar"><i style="width:100%"></i></span><span class="num st">7d over</span></div>
-          <div class="cad warn"><span class="nm">Laundry</span><span class="num">6d</span><span class="bar"><i style="width:86%"></i></span><span class="num st">due</span></div>
-          <div class="cad"><span class="nm">Sheets</span><span class="num">12d</span><span class="bar"><i style="width:57%"></i></span><span class="num st">fresh</span></div>
-          <div class="cad"><span class="nm">Water plants</span><span class="num">2d</span><span class="bar"><i style="width:29%"></i></span><span class="num st">fresh</span></div>
-          <div class="cad"><span class="nm">Back up laptop</span><span class="num">9d</span><span class="bar"><i style="width:30%"></i></span><span class="num st">fresh</span></div>
+          <div class="cad over"><span class="nm">Vacuum</span><span class="num">21d</span><span class="bar"><i style="width:100%"></i></span><span class="num st">7d over</span><button class="did" aria-label="Mark vacuum done today">done</button></div>
+          <div class="cad warn"><span class="nm">Laundry</span><span class="num">6d</span><span class="bar"><i style="width:86%"></i></span><span class="num st">due</span><button class="did" aria-label="Mark laundry done today">done</button></div>
+          <div class="cad"><span class="nm">Sheets</span><span class="num">12d</span><span class="bar"><i style="width:57%"></i></span><span class="num st">fresh</span><button class="did" aria-label="Mark sheets done today">done</button></div>
+          <div class="cad"><span class="nm">Water plants</span><span class="num">2d</span><span class="bar"><i style="width:29%"></i></span><span class="num st">fresh</span><button class="did" aria-label="Mark water plants done today">done</button></div>
+          <div class="cad"><span class="nm">Back up laptop</span><span class="num">9d</span><span class="bar"><i style="width:30%"></i></span><span class="num st">fresh</span><button class="did" aria-label="Mark back up laptop done today">done</button></div>
         </div>
 
         <div class="mgrid" id="hab-month" hidden>
@@ -683,6 +686,16 @@ document.querySelectorAll('.hrow .levels').forEach(group => {
 document.querySelectorAll('.strip button').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.strip button').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+  });
+});
+document.querySelectorAll('.cad .did').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const row = btn.closest('.cad');
+    row.classList.remove('warn', 'over');
+    row.classList.add('just');
+    row.querySelector('.num').textContent = 'today';
+    row.querySelector('.bar i').style.width = '0%';
+    row.querySelector('.st').textContent = 'fresh';
   });
 });
 document.querySelectorAll('.row .check').forEach(btn => {
