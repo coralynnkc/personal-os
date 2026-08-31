@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, X, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { USER_TZ } from '@/lib/dateKey'
 import { useDialog } from '@/lib/useDialog'
+import { useKeyboard } from '@/lib/useKeyboard'
 import StartFocusButton from '@/components/pomodoro/StartFocusButton'
 import { ErrorRow } from '@/components/jobs/ui'
 import {
@@ -159,9 +160,19 @@ function TaskCard({ task, onClick, onComplete, hideDue }: {
   hideDue?: string
 }) {
   return (
+    // Focusable, and marked, because the row is what `j`/`k`/`x` move between:
+    // the cursor is the focus ring, not a second highlight of its own. No
+    // `role="button"` — the row holds buttons of its own, and a button inside
+    // a button is a lie to a screen reader.
     <div
       className="row-hover row-line hoverable"
       onClick={onClick}
+      onKeyDown={e => {
+        if (e.target !== e.currentTarget) return
+        if (e.key === 'Enter') { e.preventDefault(); onClick() }
+      }}
+      tabIndex={0}
+      data-task-row={task.id}
       style={{
         padding: 'var(--s2) 0',
         cursor: 'pointer',
@@ -1097,6 +1108,9 @@ function TasksInner() {
   // The patch a failed drawer save was carrying, kept so Retry can re-send it.
   const [saveError, setSaveError] = useState<{ id: string; patch: Partial<Task>; title: string } | null>(null)
   const [showManageProjects, setShowManageProjects] = useState(false)
+  const [filter, setFilter] = useState('')
+  const filterRef = useRef<HTMLInputElement>(null)
+  const boardRef = useRef<HTMLDivElement>(null)
 
   const fetchTasks = useCallback(async () => {
     const [tasksRes, entitiesRes] = await Promise.all([
@@ -1222,6 +1236,65 @@ function TasksInner() {
   // showing again on its own.
   const tagFreq = useMemo(() => tagFrequency(tasks), [tasks])
 
+  // Substring, over the words a row already shows — the filter narrows what is
+  // on screen, it isn't a query language.
+  const shown = useMemo(() => {
+    const q = filter.trim().toLowerCase()
+    if (!q) return tasks
+    return tasks.filter(t =>
+      t.title.toLowerCase().includes(q) ||
+      (t.tags ?? []).some(tag => tag.toLowerCase().includes(q)) ||
+      (t.owner ?? '').toLowerCase().includes(q),
+    )
+  }, [tasks, filter])
+
+  /**
+   * The row cursor is the DOM's own: `j`/`k` move focus between the rows the
+   * three views all mark with `data-task-row`, so nothing has to thread a
+   * selected index down through a board, a forecast and a category list, and
+   * the cursor is visible for free as the focus ring.
+   */
+  const rows = useCallback(
+    () => Array.from(boardRef.current?.querySelectorAll<HTMLElement>('[data-task-row]') ?? []),
+    [],
+  )
+  const focusedRow = useCallback(() => {
+    const active = document.activeElement
+    return rows().find(row => row === active || row.contains(active)) ?? null
+  }, [rows])
+
+  const moveRow = useCallback((step: 1 | -1) => {
+    const all = rows()
+    if (all.length === 0) return
+    const here = focusedRow()
+    const next = here
+      ? all[Math.min(all.length - 1, Math.max(0, all.indexOf(here) + step))]
+      : all[step === 1 ? 0 : all.length - 1]
+    next?.focus()
+    next?.scrollIntoView({ block: 'nearest' })
+  }, [rows, focusedRow])
+
+  useKeyboard([
+    { keys: 'n', label: 'New task', group: 'Tasks', run: () => setShowAdd(true) },
+    { keys: '/', label: 'Filter tasks', group: 'Tasks', run: () => filterRef.current?.focus() },
+    { keys: 'j', label: 'Next task', group: 'Tasks', run: () => moveRow(1) },
+    { keys: 'k', label: 'Previous task', group: 'Tasks', run: () => moveRow(-1) },
+    {
+      keys: 'x', label: 'Complete the focused task', group: 'Tasks',
+      run: () => {
+        const row = focusedRow()
+        const id = row?.dataset.taskRow
+        if (!id) return
+        // Move first: completing usually unmounts this row, and focus falling
+        // back to <body> would end the run of ticks mid-list.
+        const all = rows()
+        const after = all[all.indexOf(row!) + 1] ?? all[all.indexOf(row!) - 1]
+        after?.focus()
+        handleComplete(id)
+      },
+    },
+  ])
+
   const views: { id: View; label: string }[] = [
     { id: 'kanban', label: 'Kanban' },
     { id: 'forecast', label: 'Forecast' },
@@ -1270,6 +1343,23 @@ function TasksInner() {
             </button>
           ))}
         </div>
+        {/* Not a search box: no icon, no fill, no border but the hairline the
+            rest of the toolbar sits on. `/` puts the caret here. */}
+        <input
+          ref={filterRef}
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Escape') { setFilter(''); e.currentTarget.blur() }
+          }}
+          aria-label="Filter tasks"
+          placeholder="filter…"
+          style={{
+            background: 'transparent', border: 0, borderRadius: 0, padding: 0,
+            color: 'var(--ivory)', fontFamily: 'inherit', fontSize: 'var(--text-sm)',
+            letterSpacing: '0.06em', outline: 'none', width: 120, minWidth: 0,
+          }}
+        />
         <select
           value={sort}
           onChange={e => setSort(e.target.value as Sort)}
@@ -1314,15 +1404,17 @@ function TasksInner() {
       {/* Content */}
       {!loading && (
         <TagFreqContext.Provider value={tagFreq}>
+          <div ref={boardRef}>
           {view === 'kanban' && (
-            <KanbanView tasks={sortTasks(tasks, sort)} onSelect={setSelectedTask} onComplete={handleComplete} />
+            <KanbanView tasks={sortTasks(shown, sort)} onSelect={setSelectedTask} onComplete={handleComplete} />
           )}
           {view === 'forecast' && (
-            <ForecastView tasks={sortTasks(tasks, sort)} onSelect={setSelectedTask} onComplete={handleComplete} />
+            <ForecastView tasks={sortTasks(shown, sort)} onSelect={setSelectedTask} onComplete={handleComplete} />
           )}
           {view === 'category' && (
-            <CategoryView tasks={sortTasks(tasks, sort)} entities={entities} onSelect={setSelectedTask} onComplete={handleComplete} />
+            <CategoryView tasks={sortTasks(shown, sort)} entities={entities} onSelect={setSelectedTask} onComplete={handleComplete} />
           )}
+          </div>
         </TagFreqContext.Provider>
       )}
 

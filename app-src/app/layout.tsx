@@ -4,6 +4,7 @@ import Rail from '@/components/Rail'
 import Masthead from '@/components/Masthead'
 import PomodoroProvider from '@/components/pomodoro/PomodoroProvider'
 import RefreshOnFocus from '@/components/RefreshOnFocus'
+import KeyboardProvider from '@/lib/useKeyboard'
 import './globals.css'
 
 // Three families, three jobs: Italianno is a highlight (the masthead date and
@@ -25,12 +26,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* The pomodoro lives above the router outlet so a running session
             survives navigation between routes. */}
         <PomodoroProvider>
-          <Rail />
-          <RefreshOnFocus />
-          <main style={{ flex: 1, minWidth: 0 }}>
-            <Masthead />
-            {children}
-          </main>
+          {/* Same reason as the pomodoro: one listener, above the outlet, so
+              the registry and the sheet survive navigation. */}
+          <KeyboardProvider>
+            <Rail />
+            <RefreshOnFocus />
+            <main style={{ flex: 1, minWidth: 0 }}>
+              <Masthead />
+              {children}
+            </main>
+          </KeyboardProvider>
         </PomodoroProvider>
       </body>
     </html>

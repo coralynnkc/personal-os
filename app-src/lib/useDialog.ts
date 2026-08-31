@@ -105,3 +105,11 @@ export function useDialog<T extends HTMLElement = HTMLDivElement>(
 
   return ref
 }
+
+/**
+ * Whether any dialog is currently open. The keyboard registry asks this: a
+ * page-level shortcut must not fire behind a modal that has the screen.
+ */
+export function dialogOpen(): boolean {
+  return stack.length > 0
+}
