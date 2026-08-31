@@ -1,16 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Check } from 'lucide-react'
 import Markdown, { inline } from '@/lib/markdown'
+import { eventsOnDate, rowClash, type CalEvent, type Clash } from '@/lib/dayTimeline'
 import {
   chosenArm, clock, committedMinutes, dayKey, dayTitle, entityCode, longHours,
-  meridiem, overlaps, rowEntity, rowTask, rowTitle, rowWhat,
+  meridiem, rowEntity, rowTask, rowTitle, rowWhat,
   type ArmId, type DayState, type DayStatus, type Entity, type MatchableTask, type WeekDay,
   type WeekRow,
 } from '@/lib/weekDoc'
 import StartFocusButton from '../pomodoro/StartFocusButton'
 import TaskPicker from './TaskPicker'
+import Timeline from './Timeline'
 import { cardStyle, Empty, RegionHead } from '../jobs/ui'
 
 type Choose = (row: WeekRow, arm: ArmId | null) => void
@@ -25,7 +27,7 @@ type Link = (row: WeekRow, taskId: string | null) => void
 type Toggle = (row: WeekRow, next: boolean, task: MatchableTask | null) => void
 
 function Schedule({
-  day, state, onToggle, onChoose, onLink, tasks, vocabulary,
+  day, state, onToggle, onChoose, onLink, tasks, vocabulary, events,
 }: {
   day: WeekDay
   state: DayState
@@ -34,8 +36,16 @@ function Schedule({
   onLink: Link | null
   tasks: MatchableTask[]
   vocabulary: Entity[]
+  events: CalEvent[]
 }) {
   const date = dayKey(day)
+  // Resolved once for the day, not once per row: every row asks the same
+  // question of the same events, and re-reading the calendar per line is the
+  // difference between a render and a stall on a nine-row Tuesday.
+  const eventSpans = useMemo(
+    () => (date ? eventsOnDate(events, date).timed : []),
+    [events, date],
+  )
   // Which row's picker is open, if any. One at a time, and it lives here
   // rather than in the row so that opening a second closes the first.
   const [picking, setPicking] = useState<WeekRow | null>(null)
@@ -45,9 +55,10 @@ function Schedule({
       {day.rows.map((row) => {
         // Which way this row's fork went, if it has one and the week answered.
         const choice = state.branches[row.id]
-        // A collision inside the day is the thing the flat table states as a
-        // footnote and never shows — two 🔵 meetings sitting inside a class.
-        const clash = day.rows.some((other) => other.id !== row.id && overlaps(row, other))
+        // A collision inside the day *or* with the calendar. The lecture is
+        // the one the flat table could never see: it lives in another system,
+        // and a plan written through it looks fine until you are in the room.
+        const clash = rowClash(row, day.rows, eventSpans)
         // A row is an hour spent on something, not a due date, so the day it
         // sits on never disqualifies a task — which is why the bar to clear is
         // higher here than it is for a deadline (see `matchTask`). A link the
@@ -138,11 +149,17 @@ function Tracked({
   )
 }
 
+/** The right slot is one nowrap line; a lecture's full name would push it off. */
+function short(name: string): string {
+  return name.length > 16 ? `${name.slice(0, 15).trimEnd()}\u2026` : name
+}
+
 function Row({
   row, clash, done, choice, onToggle, onChoose, task, linked, onPick, entity,
 }: {
   row: WeekRow
-  clash: boolean
+  /** What this hour runs into: another row of the same day, or the calendar. */
+  clash: Clash | null
   done: boolean
   choice: string | undefined
   onToggle: Toggle | null
@@ -230,10 +247,21 @@ function Row({
           for. Only one of the three ever shows — three tags on a schedule line
           is a legend, not a schedule. */}
       <span className="sched-rt">
+        {/* An hour the calendar already owns, named. Not an error and not
+            coral: a row can be *for* the event it sits inside ("On the plane"
+            during the flight), so this states the fact in the colour that
+            means someone else booked it and leaves the judgement alone. It
+            goes before the rest rather than instead of it — losing the link
+            and the ▶ to a lecture you knew about is the worse trade. */}
+        {!skipped && clash?.kind === 'calendar' && (
+          <span style={{ color: 'var(--royal)' }} title={`During “${clash.name}” on your calendar`}>
+            during {short(clash.name)}
+          </span>
+        )}
         {/* A row the week decided against isn't an hour any more, so it claims
             nothing here — least of all a ▶ that would start a timer on it. */}
-        {skipped ? null : clash ? (
-          <span style={{ color: 'var(--coral)' }}>overlaps</span>
+        {skipped ? null : clash?.kind === 'row' ? (
+          <span style={{ color: 'var(--coral)' }} title="Overlaps another row this day">overlaps</span>
         ) : task ? (
           <>
             {/* "tracked" is now a promise about the checkbox, not a footnote:
@@ -283,7 +311,7 @@ function Row({
  * spends the whole column on it.
  */
 export default function DaySection({
-  day, status, state, onToggle, onChoose, onLink, tasks, vocabulary,
+  day, status, state, onToggle, onChoose, onLink, tasks, vocabulary, events, calError, onRetryCal,
 }: {
   day: WeekDay
   status: DayStatus
@@ -293,6 +321,10 @@ export default function DaySection({
   onLink: Link | null
   tasks: MatchableTask[]
   vocabulary: Entity[]
+  /** What the calendar already owns of this day — the other half of the axis. */
+  events: CalEvent[]
+  calError: string | null
+  onRetryCal: () => void
 }) {
   const [showProse, setShowProse] = useState(status === 'today')
   const minutes = committedMinutes(day)
@@ -312,11 +344,17 @@ export default function DaySection({
         </div>
       )}
 
+      {/* The shape of the day first, then the day as a list. The axis is what
+          says an hour is *taken*; the list is what you tick. */}
+      <Timeline
+        day={day} state={state} events={events} calError={calError} onRetryCal={onRetryCal}
+      />
+
       {day.rows.length > 0
         ? (
           <Schedule
             day={day} state={state} onToggle={onToggle} onChoose={onChoose} onLink={onLink}
-            tasks={tasks} vocabulary={vocabulary}
+            tasks={tasks} vocabulary={vocabulary} events={events}
           />
         )
         : <Empty>Nothing scheduled.</Empty>}

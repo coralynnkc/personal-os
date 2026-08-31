@@ -563,3 +563,100 @@ input, textarea, select, button { font-family: inherit; }
 .wbar { height: 3px; background: var(--tint-2); }
 .wbar i { display: block; height: 100%; transition: width 0.2s; }
 @media (prefers-reduced-motion: reduce) { .wbar i { transition: none; } }
+
+/* ── the clock ─────────────────────────────────────────────────────────────
+   Two lanes hung off one hour axis: what the week doc planned, and what the
+   calendar already owns. The list below states clock times; only this states
+   *hours*, which is the only way a plan written straight through a lecture
+   looks wrong. Colour keeps its meaning: --royal is an hour someone else
+   already scheduled, and a plan block inside one borrows it. */
+.tl-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--s3); flex-wrap: wrap;
+  padding-bottom: var(--s2); border-bottom: 1px solid var(--rule);
+}
+.tl-key {
+  display: flex; align-items: center; gap: var(--s2); flex: none;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.06em; color: var(--slate);
+}
+.tl-swatch { width: 8px; height: 8px; margin-left: var(--s2); }
+.tl-swatch:first-child { margin-left: 0; }
+.tl-swatch-plan { background: var(--ash); }
+.tl-swatch-cal { background: var(--royal); }
+
+/* All-day events have no place on the axis and are not the day's shape, so
+   they sit above it as the flags they are. */
+.tl-allday { display: flex; flex-wrap: wrap; gap: var(--s2); padding: var(--s2) 0; }
+.tl-chip {
+  padding: 2px var(--s2); font-size: 11px; color: var(--royal);
+  border: 1px solid var(--rule); border-radius: 0;
+}
+
+/* The gutter is fixed; the two lanes split what is left. */
+.tl-body {
+  position: relative;
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--s2);
+  margin-top: var(--s3);
+  /* The hour rules are the background rather than elements, so they run under
+     every lane without anything spanning the grid. `--tl-hour` is set inline
+     from the component's own scale — one number governs both. */
+  background: repeating-linear-gradient(
+    to bottom, var(--rule-2) 0 1px, transparent 1px var(--tl-hour, 44px)
+  );
+}
+.tl-hours { position: relative; }
+.tl-hour {
+  position: absolute; left: 0; padding-top: 2px;
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 9.5px; letter-spacing: 0.06em; color: var(--slate);
+}
+.tl-lane { position: relative; min-width: 0; }
+
+/* A block is a room over the page with a hairline down its leading edge —
+   the same left rule the schedule gives a 🔵 row, at the width of an hour. */
+.tl-block {
+  position: absolute;
+  overflow: hidden;
+  padding: 2px var(--s2);
+  background: var(--tint);
+  border-left: 2px solid var(--ash);
+  border-radius: 0;
+  line-height: 1.25;
+}
+/* Too short to stack the time above the title. */
+.tl-block-short {
+  display: flex; align-items: baseline; gap: var(--s2);
+  padding-top: 1px; padding-bottom: 1px;
+}
+.tl-block-short .tl-when { flex: none; }
+.tl-block-cal { border-left-color: var(--royal); }
+.tl-block-cal .tl-what { color: var(--royal); }
+/* A planned block running through an hour the calendar already owns. It wears
+   that hour's colour, not an alarm one — the block beside it at the same
+   height is the thing that says double-booked. */
+.tl-block-clash { border-left-color: var(--royal); }
+.tl-block-clash .tl-what { color: var(--ivory); }
+.tl-when {
+  display: block;
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 9.5px; letter-spacing: 0.04em; color: var(--slate);
+}
+.tl-what {
+  display: block; font-size: 11.5px; color: var(--ash);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tl-note {
+  margin-top: var(--s2);
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.06em; color: var(--slate);
+}
+
+/* On a phone the two lanes would be two slivers; the axis is worth more than
+   the side-by-side, so the calendar lane keeps its colour and its place and
+   both simply get narrower. */
+@media (max-width: 419.98px) {
+  .tl-body { grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1fr); gap: var(--s1); }
+  .tl-what { font-size: 11px; }
+}

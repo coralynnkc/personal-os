@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server'
 import ICAL from 'ical.js'
-
-export type CalEvent = {
-  id: string
-  title: string
-  start: string   // ISO timestamp, or YYYY-MM-DD when allDay
-  end: string     // ISO timestamp, or YYYY-MM-DD when allDay
-  location?: string
-  allDay: boolean
-}
-
-const WINDOW_DAYS = 30
+// The shape, and the window's length, live in the lib the week tab draws with:
+// the timeline has to know how far ahead this reads to tell "no events" from
+// "no events known" (see `calendarCovers`).
+import { CAL_WINDOW_DAYS, type CalEvent } from '@/lib/dayTimeline'
 
 export async function GET() {
   const url = process.env.GOOGLE_CALENDAR_ICAL_URL
@@ -29,7 +22,7 @@ export async function GET() {
     const windowStart = new Date(now)
     windowStart.setDate(now.getDate() - 1)
     const windowEnd = new Date(now)
-    windowEnd.setDate(now.getDate() + WINDOW_DAYS)
+    windowEnd.setDate(now.getDate() + CAL_WINDOW_DAYS)
 
     const events: CalEvent[] = []
     const seen = new Set<string>()

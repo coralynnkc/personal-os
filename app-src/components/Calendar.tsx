@@ -3,16 +3,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { MapPin } from 'lucide-react'
 import { USER_TZ } from '@/lib/dateKey'
+import type { CalEvent } from '@/lib/dayTimeline'
 import { ErrorRow, RegionHead } from './jobs/ui'
-
-type CalEvent = {
-  id: string
-  title: string
-  start: string   // ISO timestamp, or YYYY-MM-DD when allDay
-  end: string     // ISO timestamp, or YYYY-MM-DD when allDay
-  location?: string
-  allDay: boolean
-}
 
 const TZ = USER_TZ
 

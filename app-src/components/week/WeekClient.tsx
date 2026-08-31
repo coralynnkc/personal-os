@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Markdown from '@/lib/markdown'
+import type { CalEvent } from '@/lib/dayTimeline'
 import { localToday } from '@/lib/taskDisplay'
 import {
   carriedOver, committedMinutes, dayChipParts, dayKey, dayState, dayStatus, entityVocabulary,
@@ -24,6 +25,11 @@ export default function WeekClient() {
   // job-search inventory, so this is not all of them — see `entityVocabulary`.
   const [entities, setEntities] = useState<Entity[]>([])
   const [error, setError] = useState<string | null>(null)
+  // The hours something else already owns. Kept apart from `error` on purpose:
+  // the calendar is the second half of one day's axis, not the week — an ical
+  // feed that times out should cost you that lane and a retry, not the tab.
+  const [events, setEvents] = useState<CalEvent[]>([])
+  const [calError, setCalError] = useState<string | null>(null)
   // What the app remembers about each day: which rows are done, and which way
   // each conditional row went. Lives in daily_logs.notes.week, so it is state
   // *about* the document rather than in it — the .md file stays the source of
@@ -75,7 +81,20 @@ export default function WeekClient() {
     }
   }, [])
 
+  const loadCalendar = useCallback(async () => {
+    setCalError(null)
+    try {
+      const res = await fetch('/api/calendar')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setEvents(await res.json())
+    } catch (err) {
+      console.error('Calendar fetch error:', err)
+      setCalError("Couldn't load the calendar.")
+    }
+  }, [])
+
   useEffect(() => { load() }, [load])
+  useEffect(() => { loadCalendar() }, [loadCalendar])
 
   // Optimistic, with a rollback: a write that didn't reach the database must
   // not sit there looking saved (PLAN §0). The date is the day's own key, not
@@ -316,6 +335,9 @@ export default function WeekClient() {
           onLink={selectedKey ? (row, taskId) => link(selectedKey, row, taskId) : null}
           tasks={tasks}
           vocabulary={vocabulary}
+          events={events}
+          calError={calError}
+          onRetryCal={loadCalendar}
         />
         <div className="week-stack">
           <DeadlineStrip deadlines={parsed.deadlines} tasks={tasks} />
