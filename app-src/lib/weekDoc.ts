@@ -251,7 +251,7 @@ export type Entity = {
   id: string
   name: string
   kind: string | null
-  metadata?: { archived?: boolean; weekly_hours?: number } | null
+  metadata?: { archived?: boolean; weekly_hours?: number | null } | null
 }
 
 

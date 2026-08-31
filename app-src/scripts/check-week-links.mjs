@@ -32,7 +32,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  matchTask, rowSkipped, rowTitle, scoreTask, tokens, NO_TASK, ROW_MATCH,
+  matchAny, rowSkipped, rowTitle, scoreTask, titleCandidates, tokens, NO_TASK, ROW_MATCH,
 } from '../lib/taskMatch.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -178,21 +178,29 @@ for (const day of doc.parsed.days) {
       findings.push({ ...base, status: 'dead-link', note: 'linked to a task that no longer exists — the app has gone back to guessing' })
     }
 
-    if (tokens(title).length < ROW_MATCH.minTokens) {
+    // The same candidates the app tries: the whole title, then either half of
+    // a colon. A row is only too short if none of them is long enough.
+    const candidates = titleCandidates(title)
+    if (candidates.every((c) => tokens(c).length < ROW_MATCH.minTokens)) {
       findings.push({ ...base, status: 'too-short', note: `"${title}" is under ${ROW_MATCH.minTokens} meaningful words` })
       continue
     }
 
-    const task = matchTask({ title, date }, tasks ?? [], ROW_MATCH)
+    const match = matchAny(candidates, date, tasks ?? [], ROW_MATCH)
+    const task = match?.task ?? null
+    // Which title actually carried the join, when it wasn't the whole one —
+    // a match made on half a row should read as one.
+    const via = match && match.title !== title ? match.title : null
     if (task) {
       // A link that only cleared the bar because the task happens to be due on
       // the day the row sits is the dangerous one: the +0.15 can carry a match
       // that shares two thirds of its words, and ticking that row completes
       // the wrong task. Worth showing even in the quiet report.
-      const s = scoreTask({ title, date }, task)
+      const s = scoreTask({ title: match.title, date }, task)
       const weak = s.score - (s.dated ? 0.15 : 0) < ROW_MATCH.threshold
       findings.push({
         ...base,
+        via,
         status: weak ? 'weak' : 'linked',
         score: Number(s.score.toFixed(2)),
         missing: s.missing,
@@ -238,10 +246,12 @@ for (const f of shown) {
   console.log(`    ${mark} ${f.title}`)
   if (f.status === 'linked') {
     console.log(`        → ${f.task.title}${f.task.done ? '  (done)' : ''}`)
+    if (f.via) console.log(`        matched on "${f.via}" — half the row, either side of its colon`)
   } else if (f.status === 'hand-linked') {
     console.log(`        → ${f.task.title}${f.task.done ? '  (done)' : ''}  (linked by hand)`)
   } else if (f.status === 'weak') {
     console.log(`        → ${f.task.title}${f.task.done ? '  (done)' : ''}`)
+    if (f.via) console.log(`        matched on "${f.via}" — half the row, either side of its colon`)
     console.log(`        weak: scored ${f.score}, and only cleared ${ROW_MATCH.threshold} because the task is due this day`)
     console.log(`        the row says ${f.missing.join(', ')}, the task doesn't — check this is the work you mean`)
   } else if (f.status === 'unlinked') {
@@ -266,7 +276,8 @@ if (weak) {
 if (unlinked) {
   console.log('\nA miss is usually one word. Either rename the task to contain the row\'s')
   console.log('words, or push commentary in the row behind an em dash — only the text')
-  console.log('before the dash is matched. Or link the row by hand on the week tab —')
+  console.log('before the dash is matched (a colon is softer: both halves are tried,')
+  console.log('after the whole title). Or link the row by hand on the week tab —')
   console.log('that answer sticks, and a re-sync never touches it.')
 }
 if (!ALL) console.log('\n(--all also lists the rows that matched.)')

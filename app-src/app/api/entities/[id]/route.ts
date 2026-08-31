@@ -14,6 +14,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .eq('user_id', USER_ID)
     .single()
 
+  // `weekly_hours` is a denominator on the week tab — a string or a zero
+  // there would draw a bar that means nothing, so it is checked here rather
+  // than trusted from whichever caller wrote it.
+  const hours = (body.metadata as Record<string, unknown> | undefined)?.weekly_hours
+  if (hours !== undefined && hours !== null && !(typeof hours === 'number' && Number.isFinite(hours) && hours > 0)) {
+    return NextResponse.json({ error: 'weekly_hours must be a positive number or null' }, { status: 400 })
+  }
+
   const patch: Record<string, unknown> = {}
   if (body.name !== undefined) patch.name = body.name
   if (body.kind !== undefined) patch.kind = body.kind

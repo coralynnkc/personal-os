@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { toDateKey, USER_TZ } from '@/lib/dateKey'
-import { Panel, ErrorRow, Empty, buttonStyle, labelStyle } from './ui'
+import { Panel, ErrorRow, Empty, buttonStyle, labelStyle, useConfirm } from './ui'
 import StaleStrip from './StaleStrip'
 import WaveStrip from './WaveStrip'
 import RhythmCard from './RhythmCard'
@@ -40,6 +40,7 @@ function Toggle<T extends string>({
 }
 
 export default function JobsClient() {
+  const [confirm, confirmDialog] = useConfirm()
   const [today, setToday] = useState('')
   const [view, setView] = useState<View>('pipeline')
   const [pipelineView, setPipelineView] = useState<'board' | 'table'>('board')
@@ -135,7 +136,7 @@ export default function JobsClient() {
   const remove = useCallback(async (id: string) => {
     const app = apps.find(a => a.id === id)
     if (!app) return
-    if (!window.confirm(`Remove ${app.company_name} from the pipeline?`)) return
+    if (!(await confirm(`Remove ${app.company_name} from the pipeline?`, 'Remove'))) return
     setApps(prev => prev.filter(a => a.id !== id))
     setOpenId(null)
     try {
@@ -146,7 +147,7 @@ export default function JobsClient() {
       setApps(prev => [app, ...prev])
       setError('Could not remove that application.')
     }
-  }, [apps])
+  }, [apps, confirm])
 
   const open = apps.find(a => a.id === openId) ?? null
 
@@ -230,6 +231,8 @@ export default function JobsClient() {
           onClose={() => setOpenId(null)}
         />
       )}
+
+      {confirmDialog}
     </div>
   )
 }
