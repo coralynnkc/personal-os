@@ -32,6 +32,25 @@ is recovered and logged with its true span on the next load.
 Completed sessions append to `daily_logs.notes.pomodoros`; durations are
 configurable and stored in `habit_config.pomodoro`.
 
+## Keyboard
+
+Press `?` anywhere for the live sheet — it is generated from the registry in
+`app-src/lib/useKeyboard.tsx`, so it can't drift; this table is the offline copy.
+
+| Key | Does | Where |
+|---|---|---|
+| `?` | Toggle the shortcut sheet (works over a modal) | anywhere |
+| `1` `2` `3` `4` | Today / Tasks / Jobs / Week | anywhere |
+| `g t` `g k` `g j` `g w` | The same four, chord spelling (kept off the sheet) | anywhere |
+| `n` | New task | /tasks |
+| `/` | Focus the filter field | /tasks |
+| `j` / `k` | Next / previous task row | /tasks |
+| `x` | Complete the focused row | /tasks |
+
+`Escape` closes any dialog and clears the filter when the caret is in it;
+`Enter` commits an inline edit. Shortcuts never fire while a field has focus,
+or behind a modal. `/today`, `/jobs` and `/week` have none of their own yet.
+
 ## Stack
 
 Next.js (App Router) for the frontend and API routes, Supabase for Postgres (accessed server-side via the service role key), and Vercel for deployment. Auth is a single shared password with no OAuth or user accounts.
