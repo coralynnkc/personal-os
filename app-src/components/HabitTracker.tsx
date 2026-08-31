@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, ChevronLeft, ChevronRight, X, Trash2, Sun, Moon, Lock } from 'lucide-react'
 import { habitDateKey, USER_TZ } from '@/lib/dateKey'
+import { useDialog } from '@/lib/useDialog'
 import { ErrorRow } from './jobs/ui'
 
 // `fetch` only rejects on a network failure, so a 500 came back through the
@@ -884,6 +885,8 @@ function HabitModal({
 }) {
   const [name, setName] = useState(initial?.name ?? '')
   const [levels, setLevels] = useState<Level[]>(initial?.levels ?? [{ id: uid(), label: '' }])
+  // The name field carries autoFocus, so the hook leaves focus where it is.
+  const dialogRef = useDialog<HTMLDivElement>(onClose)
 
   const canSubmit = name.trim().length > 0 && levels.every(l => l.label.trim().length > 0)
 
@@ -900,21 +903,31 @@ function HabitModal({
   const PLACEHOLDERS = ['e.g. 30 min', '1 hour', '2 hours', '3 hours', '4 hours']
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'var(--scrim)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16,
-    }}>
-      <div style={{
-        background: 'var(--tint)', border: '1px solid var(--rule)',
-        borderRadius: 0, width: '100%', maxWidth: 360,
-      }}>
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, background: 'var(--scrim)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16,
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="habit-modal-title"
+        tabIndex={-1}
+        style={{
+          background: 'var(--tint)', border: '1px solid var(--rule)',
+          borderRadius: 0, width: '100%', maxWidth: 360,
+        }}
+      >
         {/* Color strip */}
         <div style={{ height: 1, background: 'var(--lavender)' }} />
 
         <div style={{ padding: '16px 20px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <span className="panel-title">{initial ? 'Edit habit' : 'New habit'}</span>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', padding: 2 }}>
+            <span className="panel-title" id="habit-modal-title">{initial ? 'Edit habit' : 'New habit'}</span>
+            <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', padding: 2 }}>
               <X size={14} />
             </button>
           </div>

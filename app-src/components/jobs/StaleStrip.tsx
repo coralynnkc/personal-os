@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, Check } from 'lucide-react'
 import { Panel, Empty, labelStyle } from './ui'
+import { useDialog } from '@/lib/useDialog'
 import {
   daysSince, isStale, STALE_AFTER_DAYS, STATUS_COLOR, toHref,
   type Application, type Status,
@@ -19,12 +20,8 @@ function OpenPrompt({
 }: { app: Application; onAnswer: (s: Status) => void; onClose: () => void }) {
   const firstRef = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => {
-    firstRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  useEffect(() => { firstRef.current?.focus() }, [])
+  const dialogRef = useDialog<HTMLDivElement>(onClose, { autoFocus: false })
 
   const choice = (status: Status, text: string, ref?: React.Ref<HTMLButtonElement>) => (
     <button
@@ -44,9 +41,12 @@ function OpenPrompt({
     <>
       <div
         onClick={onClose}
+        aria-hidden="true"
         style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 300 }}
       />
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`Is the ${app.company_name} role open?`}

@@ -7,6 +7,7 @@ import {
   type MatchableTask, type Score,
 } from '@/lib/weekDoc'
 import { labelStyle } from '../jobs/ui'
+import { useDialog } from '@/lib/useDialog'
 
 /**
  * Why a task is being offered, in the row's own words.
@@ -85,19 +86,11 @@ export default function TaskPicker({
 }) {
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-  const returnTo = useRef<Element | null>(null)
 
-  useEffect(() => {
-    returnTo.current = document.activeElement
-    inputRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      // The row's own control is where the tap came from and where the eye is.
-      if (returnTo.current instanceof HTMLElement) returnTo.current.focus()
-    }
-  }, [onClose])
+  // The search field wants focus, not the first button; Escape, the Tab trap,
+  // and returning focus to the row's own control are the hook's business.
+  useEffect(() => { inputRef.current?.focus() }, [])
+  const dialogRef = useDialog<HTMLDivElement>(onClose, { autoFocus: false })
 
   const suggestions = useMemo(
     () => suggestTasks({ title, date }, tasks, { limit: 6 }),
@@ -121,8 +114,10 @@ export default function TaskPicker({
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 200 }} />
+      <div onClick={onClose} aria-hidden="true" style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 200 }} />
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`Task for “${title}”`}

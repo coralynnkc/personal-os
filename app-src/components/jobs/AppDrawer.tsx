@@ -7,6 +7,7 @@ import {
   daysSince, toHref, type Application,
 } from '@/lib/jobs'
 import { labelStyle, Pill } from './ui'
+import { useDialog } from '@/lib/useDialog'
 
 const fieldStyle = {
   width: '100%', fontSize: 13, color: 'var(--ink-6)',
@@ -39,12 +40,8 @@ export default function AppDrawer({
 }) {
   const closeRef = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => {
-    closeRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  useEffect(() => { closeRef.current?.focus() }, [])
+  const dialogRef = useDialog<HTMLElement>(onClose, { autoFocus: false })
 
   const research = (app.entity?.metadata ?? {}) as Record<string, unknown>
   const hasResearch = RESEARCH_FIELDS.some(f => research[f.key])
@@ -54,9 +51,12 @@ export default function AppDrawer({
     <>
       <div
         onClick={onClose}
+        aria-hidden="true"
         style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 200 }}
       />
       <aside
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`${app.company_name} application`}

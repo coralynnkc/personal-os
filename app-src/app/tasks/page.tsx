@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, useCal
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, X, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { USER_TZ } from '@/lib/dateKey'
+import { useDialog } from '@/lib/useDialog'
 import StartFocusButton from '@/components/pomodoro/StartFocusButton'
 import { ErrorRow } from '@/components/jobs/ui'
 import {
@@ -456,7 +457,7 @@ function CategoryView({ tasks, entities, onSelect, onComplete }: {
 // ── Task drawer ────────────────────────────────────────────────────────────
 
 function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete, onUncomplete, isMobile }: {
-  task: Task | null
+  task: Task
   entities: Entity[]
   onClose: () => void
   onSave: (id: string, patch: Partial<Task>) => Promise<void>
@@ -471,13 +472,9 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
   useEffect(() => { setEntities(initialEntities) }, [initialEntities])
 
   useEffect(() => {
-    if (task) {
-      setForm({ ...task })
-      setTagInput((task.tags ?? []).join(', '))
-    }
-  }, [task?.id])
-
-  if (!task) return null
+    setForm({ ...task })
+    setTagInput((task.tags ?? []).join(', '))
+  }, [task.id])
 
   const set = (k: keyof Task, v: unknown) => setForm(f => ({ ...f, [k]: v }))
 
@@ -486,6 +483,8 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
     onSave(task.id, { ...form, tags: tags.length ? tags : null })
     onClose()
   }
+
+  const dialogRef = useDialog<HTMLDivElement>(handleClose)
 
   const inputStyle: React.CSSProperties = {
     background: 'var(--ink-1)', border: '1px solid var(--glass-border)',
@@ -507,10 +506,17 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
       {/* Backdrop */}
       <div
         onClick={handleClose}
+        aria-hidden="true"
         style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 50 }}
       />
       {/* Drawer */}
-      <div style={isMobile ? {
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="task-drawer-title"
+        tabIndex={-1}
+        style={isMobile ? {
         position: 'fixed', bottom: 0, left: 0, right: 0, top: 'auto',
         maxHeight: '92dvh', borderRadius: '16px 16px 0 0',
         background: 'var(--tint)',
@@ -523,7 +529,8 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
         borderLeft: '1px solid var(--glass-border)',
         zIndex: 51, display: 'flex', flexDirection: 'column',
         overflowY: 'auto',
-      }}>
+      }}
+      >
         {isMobile && (
           <div style={{ width: 36, height: 4, borderRadius: 0, background: 'var(--ink-3)', alignSelf: 'center', margin: '12px auto 4px' }} />
         )}
@@ -531,7 +538,7 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '14px 16px', borderBottom: '1px solid var(--glass-border)', flexShrink: 0,
         }}>
-          <span className="panel-title">
+          <span className="panel-title" id="task-drawer-title">
             {isCompleted ? 'Completed task' : 'Edit task'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -542,7 +549,7 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
             >
               <Trash2 size={14} />
             </button>
-            <button onClick={handleClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)' }}>
+            <button onClick={handleClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)' }}>
               <X size={16} />
             </button>
           </div>
@@ -550,13 +557,14 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
 
         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
           <div style={rowStyle}>
-            <label style={labelStyle}>Title</label>
-            <input style={inputStyle} value={form.title ?? ''} onChange={e => set('title', e.target.value)} />
+            <label htmlFor="td-title" style={labelStyle}>Title</label>
+            <input id="td-title" style={inputStyle} value={form.title ?? ''} onChange={e => set('title', e.target.value)} />
           </div>
 
           <div style={rowStyle}>
-            <label style={labelStyle}>Notes</label>
+            <label htmlFor="td-notes" style={labelStyle}>Notes</label>
             <textarea
+              id="td-notes"
               style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }}
               value={form.description ?? ''}
               onChange={e => set('description', e.target.value || null)}
@@ -565,13 +573,13 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div style={rowStyle}>
-              <label style={labelStyle}>Urgency</label>
+              <label htmlFor="td-urgency" style={labelStyle}>Urgency</label>
               {form.due_date ? (
                 <div style={{ ...inputStyle, color: URGENCY_COLORS[urgencyFromDate(form.due_date)], fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center' }}>
                   {URGENCY_LABELS[urgencyFromDate(form.due_date)]} <span style={{ marginLeft: 6, fontSize: 'var(--text-xs)', color: 'var(--ink-3)' }}>from due date</span>
                 </div>
               ) : (
-                <select style={inputStyle} value={form.urgency ?? 'someday'} onChange={e => set('urgency', e.target.value)}>
+                <select id="td-urgency" style={inputStyle} value={form.urgency ?? 'someday'} onChange={e => set('urgency', e.target.value)}>
                   <option value="today">Today</option>
                   <option value="week">This Week</option>
                   <option value="month">This Month</option>
@@ -580,8 +588,9 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
               )}
             </div>
             <div style={rowStyle}>
-              <label style={labelStyle}>Points</label>
+              <label htmlFor="td-points" style={labelStyle}>Points</label>
               <input
+                id="td-points"
                 style={inputStyle} type="number" min={0}
                 value={form.points ?? ''}
                 onChange={e => set('points', e.target.value ? Number(e.target.value) : null)}
@@ -591,9 +600,9 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div style={rowStyle}>
-              <label style={labelStyle}>Due Date</label>
+              <label htmlFor="td-due" style={labelStyle}>Due Date</label>
               <div style={{ display: 'flex', gap: 4 }}>
-                <input style={{ ...inputStyle, flex: 1 }} type="date" value={form.due_date ?? ''} onChange={e => set('due_date', e.target.value || null)} />
+                <input id="td-due" style={{ ...inputStyle, flex: 1 }} type="date" value={form.due_date ?? ''} onChange={e => set('due_date', e.target.value || null)} />
                 {form.due_date && (
                   <button
                     onClick={() => set('due_date', null)}
@@ -610,8 +619,9 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
               </div>
             </div>
             <div style={rowStyle}>
-              <label style={labelStyle}>Project</label>
+              <label htmlFor="td-project" style={labelStyle}>Project</label>
               <ProjectSelect
+                id="td-project"
                 entities={entities}
                 value={form.entity_id ?? ''}
                 onChange={v => set('entity_id', v || null)}
@@ -623,13 +633,13 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div style={rowStyle}>
-              <label style={labelStyle}>Owner</label>
-              <input style={inputStyle} value={form.owner ?? ''} onChange={e => set('owner', e.target.value || null)} />
+              <label htmlFor="td-owner" style={labelStyle}>Owner</label>
+              <input id="td-owner" style={inputStyle} value={form.owner ?? ''} onChange={e => set('owner', e.target.value || null)} />
             </div>
             <div style={rowStyle}>
-              <label style={labelStyle}>Tags (comma-sep)</label>
+              <label htmlFor="td-tags" style={labelStyle}>Tags (comma-sep)</label>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <input style={{ ...inputStyle, width: '100%' }} value={tagInput} onChange={e => setTagInput(e.target.value)} placeholder="design, frontend" />
+                <input id="td-tags" style={{ ...inputStyle, width: '100%' }} value={tagInput} onChange={e => setTagInput(e.target.value)} placeholder="design, frontend" />
                 {/* Live preview — the colours here are the colours the card will use. */}
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
                   {tagInput.split(',').map(t => t.trim()).filter(Boolean).map(t => (
@@ -678,7 +688,8 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
 
 // ── Inline project creator ─────────────────────────────────────────────────
 
-function ProjectSelect({ entities, value, onChange, onCreated, inputStyle }: {
+function ProjectSelect({ id, entities, value, onChange, onCreated, inputStyle }: {
+  id?: string
   entities: Entity[]
   value: string
   onChange: (id: string) => void
@@ -715,6 +726,8 @@ function ProjectSelect({ entities, value, onChange, onCreated, inputStyle }: {
       <div style={{ display: 'flex', gap: 4 }}>
         <input
           ref={inputRef}
+          id={id}
+          aria-label="New project name"
           style={{ ...inputStyle, flex: 1 }}
           placeholder="Project name…"
           value={name}
@@ -745,7 +758,8 @@ function ProjectSelect({ entities, value, onChange, onCreated, inputStyle }: {
 
   return (
     <div style={{ display: 'flex', gap: 4 }}>
-      <select style={{ ...inputStyle, flex: 1 }} value={value} onChange={e => onChange(e.target.value)}>
+      {/* aria-label as well as the id: the add-task modal has no visible label. */}
+      <select id={id} aria-label="Project" style={{ ...inputStyle, flex: 1 }} value={value} onChange={e => onChange(e.target.value)}>
         <option value="">No project</option>
         {entities.map(en => <option key={en.id} value={en.id}>{en.name}</option>)}
       </select>
@@ -772,6 +786,7 @@ function ManageProjectsModal({ onClose, onChange }: {
   const [entities, setEntities] = useState<Entity[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
+  const dialogRef = useDialog<HTMLDivElement>(onClose)
 
   useEffect(() => {
     fetch('/api/entities?all=true').then(r => r.json()).then(setEntities)
@@ -812,16 +827,22 @@ function ManageProjectsModal({ onClose, onChange }: {
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 60 }} />
-      <div style={{
+      <div onClick={onClose} aria-hidden="true" style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 60 }} />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="manage-projects-title"
+        tabIndex={-1}
+        style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
         width: 400, maxHeight: '70vh', background: 'var(--tint)',
         border: '1px solid var(--glass-border)', borderRadius: 'var(--radius)',
         zIndex: 61, display: 'flex', flexDirection: 'column',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--glass-border)', flexShrink: 0 }}>
-          <span className="panel-title">Manage projects</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)' }}><X size={14} /></button>
+          <span className="panel-title" id="manage-projects-title">Manage projects</span>
+          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)' }}><X size={14} /></button>
         </div>
         <div style={{ overflowY: 'auto', padding: '10px 16px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {active.length === 0 && <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-3)', padding: '8px 0' }}>No projects yet.</div>}
@@ -883,6 +904,9 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
   const [saving, setSaving] = useState(false)
   const [entities, setEntities] = useState<Entity[]>(initialEntities)
   const inputRef = useRef<HTMLInputElement>(null)
+  // The title field takes focus on its own timer below, so the dialog doesn't
+  // also grab it — that would land on the close button and then jump.
+  const dialogRef = useDialog<HTMLDivElement>(onClose, { autoFocus: false })
 
   useEffect(() => {
     // Delay focus on mobile so the bottom sheet finishes animating before the keyboard opens
@@ -922,8 +946,14 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 60 }} />
-      <div style={{
+      <div onClick={onClose} aria-hidden="true" style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 60 }} />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-task-title"
+        tabIndex={-1}
+        style={{
         ...sheetStyle,
         background: 'var(--tint)',
         border: '1px solid var(--glass-border)',
@@ -933,16 +963,17 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
           <div style={{ width: 36, height: 4, borderRadius: 0, background: 'var(--ink-3)', alignSelf: 'center', marginBottom: 4 }} />
         )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span className="panel-title">
+          <span className="panel-title" id="add-task-title">
             New task
           </span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)' }}>
+          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)' }}>
             <X size={14} />
           </button>
         </div>
 
         <input
           ref={inputRef}
+          aria-label="Task title"
           style={{ ...inputStyle, fontSize: 14 }}
           placeholder="Task title…"
           value={title}
@@ -952,7 +983,7 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 4 }}>
-            <input style={{ ...inputStyle, flex: 1 }} type="date" value={dueDate} onChange={e => {
+            <input aria-label="Due date" style={{ ...inputStyle, flex: 1 }} type="date" value={dueDate} onChange={e => {
               setDueDate(e.target.value)
               if (!e.target.value) setUrgency('someday')
             }} />
@@ -983,14 +1014,14 @@ function AddModal({ entities: initialEntities, onClose, onAdd }: {
               <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-3)' }}>from due date</span>
             </div>
           ) : (
-            <select style={inputStyle} value={urgency} onChange={e => setUrgency(e.target.value as Urgency)}>
+            <select aria-label="Urgency" style={inputStyle} value={urgency} onChange={e => setUrgency(e.target.value as Urgency)}>
               <option value="today">Today</option>
               <option value="week">This Week</option>
               <option value="month">This Month</option>
               <option value="someday">Someday</option>
             </select>
           )}
-          <input style={inputStyle} type="number" min={0} placeholder="pts" value={points} onChange={e => setPoints(e.target.value)} />
+          <input aria-label="Points" style={inputStyle} type="number" min={0} placeholder="pts" value={points} onChange={e => setPoints(e.target.value)} />
         </div>
         <ProjectSelect
           entities={entities}
@@ -1296,6 +1327,7 @@ function TasksInner() {
       )}
 
       {/* Drawer */}
+      {selectedTask && (
       <TaskDrawer
         task={selectedTask}
         entities={entities}
@@ -1305,6 +1337,7 @@ function TasksInner() {
         onUncomplete={handleUncomplete}
         isMobile={isMobile}
       />
+      )}
 
       {/* Add modal */}
       {showAdd && (
