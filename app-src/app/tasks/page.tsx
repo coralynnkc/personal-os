@@ -10,8 +10,10 @@ import StartFocusButton from '@/components/pomodoro/StartFocusButton'
 import { ErrorRow, useConfirm } from '@/components/jobs/ui'
 import {
   localToday, dueLabel, tagFrequency, displayTags, TONE_COLOR,
-  EMPTY_TAG_FREQ, type TagFreq,
+  EMPTY_TAG_FREQ, urgencyFromDate, effectiveUrgency, isEffectivelyKey,
+  type TagFreq,
 } from '@/lib/taskDisplay'
+import KeyStar from '@/components/KeyStar'
 
 function useMobile() {
   const [mobile, setMobile] = useState(false)
@@ -45,29 +47,6 @@ type View = 'kanban' | 'forecast' | 'category'
 type Sort = 'priority' | 'due' | 'title' | 'points' | 'created'
 type Urgency = 'today' | 'week' | 'month' | 'someday'
 
-
-function urgencyFromDate(due: string): Urgency {
-  const today = localToday()
-  if (due <= today) return 'today'
-  const dueDate = new Date(due + 'T12:00:00')
-  const now = new Date()
-  const in7 = new Date(now); in7.setDate(now.getDate() + 7)
-  if (dueDate <= in7) return 'week'
-  // Rolling 30 days, not the calendar month — on Aug 29 a Sep 8 deadline is
-  // three weeks of runway, not "someday".
-  const in30 = new Date(now); in30.setDate(now.getDate() + 30)
-  if (dueDate <= in30) return 'month'
-  return 'someday'
-}
-
-function effectiveUrgency(task: Task): Urgency {
-  if (task.due_date) return urgencyFromDate(task.due_date)
-  return task.urgency ?? 'someday'
-}
-
-function isEffectivelyKey(task: Task): boolean {
-  return task.key || effectiveUrgency(task) === 'today'
-}
 
 const URGENCY_LABELS: Record<Urgency, string> = {
   today: 'Today',
@@ -126,6 +105,13 @@ function dateChip(color: string): React.CSSProperties {
  */
 const TagFreqContext = createContext<TagFreq>(EMPTY_TAG_FREQ)
 
+/**
+ * Flipping the key flag from a row, without threading a handler through three
+ * views that don't otherwise care about it — same reason the tag frequency
+ * travels this way.
+ */
+const ToggleKeyContext = createContext<(task: Task) => void>(() => {})
+
 // ── Task card ──────────────────────────────────────────────────────────────
 
 /** The chip row under a task title: one date chip, then at most two tags. */
@@ -138,7 +124,7 @@ function TaskMeta({ task, hideDue }: { task: Task; hideDue?: string }) {
   const { shown, hidden } = displayTags(task.tags, freq)
   if (!due && shown.length === 0) return null
   return (
-    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', paddingLeft: 32 }}>
+    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', paddingLeft: 52 }}>
       {due && <span className="chip" style={dateChip(TONE_COLOR[due.tone])}>{due.text}</span>}
       {shown.map(t => (
         <span key={t} className="chip" style={tagChip()}>{t}</span>
@@ -159,6 +145,7 @@ function TaskCard({ task, onClick, onComplete, hideDue }: {
   /** Drop the date chip when it would only repeat the heading above it. */
   hideDue?: string
 }) {
+  const toggleKey = useContext(ToggleKeyContext)
   return (
     // Focusable, and marked, because the row is what `j`/`k`/`x` move between:
     // the cursor is the focus ring, not a second highlight of its own. No
@@ -182,14 +169,22 @@ function TaskCard({ task, onClick, onComplete, hideDue }: {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--s3)' }}>
-        <button
-          className="check-circle"
-          onClick={e => { e.stopPropagation(); onComplete(task.id) }}
-          style={{ alignSelf: 'center' }}
-          title="Complete task" aria-label="Complete task"
-        />
+        {/* The margin: the target and the mark, one cell, one narrow gutter
+            between them — the row shouldn't pay a full gap twice before the
+            title starts. */}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'center' }}>
+          <button
+            className="check-circle"
+            onClick={e => { e.stopPropagation(); onComplete(task.id) }}
+            title="Complete task" aria-label="Complete task"
+          />
+          <KeyStar
+            keyed={task.key}
+            implicit={isEffectivelyKey(task)}
+            onToggle={() => toggleKey(task)}
+          />
+        </span>
         <span style={{ fontSize: 'var(--text-base)', color: 'var(--ivory)', lineHeight: 1.35, flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
-          {isEffectivelyKey(task) && <span style={{ color: 'var(--rose)', fontSize: 10, marginRight: 6 }}>★</span>}
           {task.title}
         </span>
         {/* Points sit in the gutter as a plain number — they rank the row,
@@ -293,6 +288,7 @@ function ForecastView({ tasks, onSelect, onComplete }: {
   onSelect: (t: Task) => void
   onComplete: (id: string) => void
 }) {
+  const toggleKey = useContext(ToggleKeyContext)
   const open = tasks.filter(t => !t.completed_at)
   const now = new Date()
   const today = localToday()
@@ -367,6 +363,8 @@ function ForecastView({ tasks, onSelect, onComplete }: {
                   <div
                     key={t.id}
                     onClick={() => onSelect(t)}
+                    // `row-hover` is what reveals an empty star on this row.
+                    className="row-hover"
                     style={{
                       fontSize: 'var(--text-xs)', color: 'var(--ink-5)', cursor: 'pointer', padding: '2px 4px',
                       borderRadius: 0, lineHeight: 1.3,
@@ -382,7 +380,7 @@ function ForecastView({ tasks, onSelect, onComplete }: {
                         background: 'transparent', cursor: 'pointer', flexShrink: 0,
                       }}
                     />
-                    {isEffectivelyKey(t) && <span style={{ color: 'var(--accent)', fontSize: 'var(--text-xs)' }}>★</span>}
+                    <KeyStar keyed={t.key} implicit={isEffectivelyKey(t)} onToggle={() => toggleKey(t)} size={9} />
                     {t.title}
                   </div>
                 ))}
@@ -1257,6 +1255,9 @@ function TasksInner() {
     }
   }
 
+  /** The star is a one-field save, so it rides the same optimistic path. */
+  const handleToggleKey = (task: Task) => handleSave(task.id, { key: !task.key })
+
   const handleUncomplete = async (id: string) => {
     const prevCompletedAt = tasks.find(t => t.id === id)?.completed_at ?? null
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed_at: null } : t))
@@ -1470,6 +1471,7 @@ function TasksInner() {
       {/* Content */}
       {!loading && (
         <TagFreqContext.Provider value={tagFreq}>
+          <ToggleKeyContext.Provider value={handleToggleKey}>
           <div ref={boardRef}>
           {view === 'kanban' && (
             <KanbanView tasks={sortTasks(shown, sort)} onSelect={setSelectedTask} onComplete={handleComplete} />
@@ -1481,6 +1483,7 @@ function TasksInner() {
             <CategoryView tasks={sortTasks(shown, sort)} entities={entities} onSelect={setSelectedTask} onComplete={handleComplete} />
           )}
           </div>
+          </ToggleKeyContext.Provider>
         </TagFreqContext.Provider>
       )}
 

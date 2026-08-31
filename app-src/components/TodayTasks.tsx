@@ -4,7 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Check } from 'lucide-react'
-import { dueLabel, TONE_COLOR } from '@/lib/taskDisplay'
+import { dueLabel, isEffectivelyKey, TONE_COLOR } from '@/lib/taskDisplay'
+import KeyStar from './KeyStar'
 import StartFocusButton from './pomodoro/StartFocusButton'
 import { ErrorRow, RegionHead } from './jobs/ui'
 
@@ -130,6 +131,28 @@ export default function TodayTasks() {
     }
   }
 
+  /**
+   * Unstarring here doesn't drop the row: this list is what today asks of you,
+   * and a row vanishing under the cursor is a hard thing to undo. It stays
+   * until the next load, which is when the list is meant to change.
+   */
+  const toggleKey = async (task: Task) => {
+    const next = !task.key
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, key: next } : t))
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: next }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    } catch (err) {
+      console.error('Failed to toggle key task:', err)
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, key: task.key } : t))
+      setError("Couldn't change that task's star.")
+    }
+  }
+
   const openTask = (id: string) => {
     router.push(`/tasks?task=${id}`)
   }
@@ -159,24 +182,34 @@ export default function TodayTasks() {
             onMouseEnter={e => setHovered({ id: task.id, el: e.currentTarget })}
             onMouseLeave={() => setHovered(h => (h?.id === task.id ? null : h))}
             style={{
-              display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr) auto',
+              display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto',
               gap: 'var(--s3)', alignItems: 'baseline',
               padding: 'var(--s2) 0', position: 'relative',
             }}
           >
-            {/* The completion circle — a target, so it is the one round thing. */}
-            <button
-              onClick={e => completeTask(e, task.id)}
-              disabled={completing.has(task.id)}
-              className="check-circle"
-              data-done={completing.has(task.id)}
-              title="Mark complete" aria-label="Mark complete"
-              style={{ alignSelf: 'center' }}
-            >
-              <Check size={8} strokeWidth={3} />
-            </button>
+            {/* The margin: the completion circle — a target, so it is the one
+                round thing — and the mark. The mark sits here rather than in
+                the title now that it's a switch, since a button inside the
+                title button would have been a button inside a button. They
+                share a cell so the pair costs the row one narrow gutter. */}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'center' }}>
+              <button
+                onClick={e => completeTask(e, task.id)}
+                disabled={completing.has(task.id)}
+                className="check-circle"
+                data-done={completing.has(task.id)}
+                title="Mark complete" aria-label="Mark complete"
+              >
+                <Check size={8} strokeWidth={3} />
+              </button>
+              <KeyStar
+                keyed={task.key}
+                implicit={isEffectivelyKey(task)}
+                onToggle={() => toggleKey(task)}
+              />
+            </span>
 
-            {/* The line itself: mark, title, tag — read as one sentence. */}
+            {/* The line itself: title and tag — read as one sentence. */}
             <button
               onClick={() => openTask(task.id)}
               style={{
@@ -187,9 +220,7 @@ export default function TodayTasks() {
               }}
             >
               {/* One line of text, so a long title wraps under itself rather
-                  than pushing the star and the point count onto rows of
-                  their own. */}
-              <span style={{ color: 'var(--rose)', fontSize: 10, marginRight: 6 }}>★</span>
+                  than pushing the point count onto a row of its own. */}
               {task.title}
               {task.points != null && (
                 <span className="mono" style={{ fontSize: 11, color: 'var(--slate)', marginLeft: 8 }}>

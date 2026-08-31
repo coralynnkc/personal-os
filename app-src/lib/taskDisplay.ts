@@ -119,3 +119,36 @@ export function displayTags(
 // spends its colour budget on something that is not time, and then coral means
 // nothing. Tags are quiet text now, ordered rarest-first by displayTags above —
 // which is the part that was actually doing the identifying work.
+
+// ── Key tasks ──────────────────────────────────────────────────────────────
+
+/**
+ * A due date outranks the urgency bucket, on the same rolling windows the
+ * board columns use: on Aug 29 a Sep 8 deadline is three weeks of runway, not
+ * "someday".
+ */
+export function urgencyFromDate(due: string): Urgency {
+  const today = localToday()
+  if (due <= today) return 'today'
+  const dueDate = new Date(due + 'T12:00:00')
+  const now = new Date()
+  const in7 = new Date(now); in7.setDate(now.getDate() + 7)
+  if (dueDate <= in7) return 'week'
+  const in30 = new Date(now); in30.setDate(now.getDate() + 30)
+  if (dueDate <= in30) return 'month'
+  return 'someday'
+}
+
+export function effectiveUrgency(task: { due_date?: string | null; urgency?: string | null }): Urgency {
+  if (task.due_date) return urgencyFromDate(task.due_date)
+  return (task.urgency as Urgency | null) ?? 'someday'
+}
+
+/**
+ * Two ways to earn a star: the `key` flag, or being due today. Only the flag
+ * is yours to set, which is why the star renders them in different colours —
+ * see `KeyStar`.
+ */
+export function isEffectivelyKey(task: { key?: boolean; due_date?: string | null; urgency?: string | null }): boolean {
+  return !!task.key || effectiveUrgency(task) === 'today'
+}
