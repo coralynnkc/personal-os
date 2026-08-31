@@ -1,5 +1,6 @@
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
 import { habitDateKey, USER_TZ } from '@/lib/dateKey'
+import { cadenceState, normalizeEveryDays } from '@/lib/cadence'
 import {
   Args, fail, optBoolean, optDate, optEnum, optInt, optString, optTags,
   optTimestamp, optUuid, requireInt, requireString, requireUuid, set,
@@ -41,7 +42,15 @@ function todayInUserTz(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date())
 }
 
-async function loadHabitConfig(): Promise<{ id: string; name: string; levels: { id: string; label: string }[] }[]> {
+type ConfigHabit = {
+  id: string
+  name: string
+  levels: { id: string; label: string }[]
+  kind?: 'daily' | 'cadence'
+  everyDays?: number
+}
+
+async function loadHabitConfig(): Promise<ConfigHabit[]> {
   const { data, error } = await supabaseAdmin
     .from('habit_config')
     .select('habits')
@@ -330,21 +339,54 @@ const getHabits: Tool = {
   name: 'get_habits',
   description:
     'List the configured habits with their ids and level labels. Call this before log_habit so you use a real habitId and a ' +
-    'valid level. Levels are 1-based: level 0 means not done, level 1 is the first label, and the highest level equals the number of labels.',
+    'valid level. Levels are 1-based: level 0 means not done, level 1 is the first label, and the highest level equals the number of labels. ' +
+    'Cadence habits are returned separately: they have a rhythm rather than a level, are logged with log_cadence, and carry how many ' +
+    'days it has been and whether that is over their rhythm.',
   inputSchema: { type: 'object', properties: {} },
   async handler() {
     const habits = await loadHabitConfig()
+    const today = habitDateKey(TZ)
+    const cadence = habits.filter(h => h.kind === 'cadence')
+    const lastDone = cadence.length ? await loadCadenceLastDone() : {}
+
     return {
       timezone: TZ,
-      today: habitDateKey(TZ),
-      habits: habits.map(h => ({
+      today,
+      habits: habits.filter(h => h.kind !== 'cadence').map(h => ({
         id: h.id,
         name: h.name,
         levels: (h.levels ?? []).map((l, i) => ({ level: i + 1, label: l.label })),
         max_level: (h.levels ?? []).length,
       })),
+      cadence_habits: cadence.map(h => {
+        const every = normalizeEveryDays(h.everyDays)
+        const state = cadenceState(every, lastDone[h.id] ?? null, today)
+        return {
+          id: h.id,
+          name: h.name,
+          every_days: every,
+          last_done: lastDone[h.id] ?? null,
+          days_since: state.daysSince,
+          status: state.status,
+        }
+      }),
     }
   },
+}
+
+/** habitId → most recent event date. Mirrors GET /api/habits/cadence. */
+async function loadCadenceLastDone(): Promise<Record<string, string>> {
+  const { data, error } = await supabaseAdmin
+    .from('habit_events')
+    .select('habit_id, event_date')
+    .eq('user_id', USER_ID)
+    .order('event_date', { ascending: false })
+
+  if (error) dbFail('habit_events select', error)
+
+  const last: Record<string, string> = {}
+  for (const row of data ?? []) if (!last[row.habit_id]) last[row.habit_id] = row.event_date
+  return last
 }
 
 const logHabit: Tool = {
@@ -375,6 +417,10 @@ const logHabit: Tool = {
       fail(`no habit with id ${habitId}. Configured habits: ${known}`)
     }
 
+    if (habit.kind === 'cadence') {
+      fail(`'${habit.name}' is a cadence habit — it has no levels. Record it with log_cadence instead.`)
+    }
+
     const maxLevel = (habit.levels ?? []).length
     if (level < 0 || level > maxLevel) fail(`level must be between 0 and ${maxLevel} for habit '${habit.name}'`)
 
@@ -401,6 +447,60 @@ const logHabit: Tool = {
 
     if (error) dbFail('log_habit', error)
     return { ok: true, date, habitId, habit: habit.name, level }
+  },
+}
+
+const logCadence: Tool = {
+  name: 'log_cadence',
+  description:
+    'Record that a cadence habit was done on a day — laundry, sheets, vacuuming, anything with a rhythm rather than a ' +
+    'deadline. Omit date to record it against the current habit day (4am rollover). Doing it twice on one day counts once. ' +
+    'Set undo to remove that day\'s entry. Use get_habits for the ids; daily habits go through log_habit instead.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      habitId: { type: 'string', description: 'Cadence habit id from get_habits. Required.' },
+      date: { type: 'string', description: 'YYYY-MM-DD. Defaults to the current habit day (4am rollover).' },
+      undo: { type: 'boolean', description: 'True to delete that day\'s entry instead of recording one.' },
+    },
+    required: ['habitId'],
+  },
+  async handler(args) {
+    const habitId = requireString(args, 'habitId')
+    const date = optDate(args, 'date') ?? habitDateKey(TZ)
+    const undo = optBoolean(args, 'undo') ?? false
+
+    const habits = await loadHabitConfig()
+    const habit = habits.find(h => h.id === habitId)
+    if (!habit) {
+      const known = habits.filter(h => h.kind === 'cadence').map(h => `${h.id} (${h.name})`).join(', ') || 'none configured'
+      fail(`no habit with id ${habitId}. Cadence habits: ${known}`)
+    }
+    if (habit.kind !== 'cadence') {
+      fail(`'${habit.name}' is a daily habit — record it with log_habit and a level.`)
+    }
+
+    if (undo) {
+      const { error } = await supabaseAdmin
+        .from('habit_events')
+        .delete()
+        .eq('user_id', USER_ID)
+        .eq('habit_id', habitId)
+        .eq('event_date', date)
+      if (error) dbFail('log_cadence delete', error)
+      return { ok: true, date, habitId, habit: habit.name, undone: true }
+    }
+
+    const { error } = await supabaseAdmin
+      .from('habit_events')
+      .upsert(
+        { user_id: USER_ID, habit_id: habitId, event_date: date },
+        { onConflict: 'user_id,habit_id,event_date', ignoreDuplicates: true }
+      )
+    if (error) dbFail('log_cadence', error)
+
+    const every = normalizeEveryDays(habit.everyDays)
+    return { ok: true, date, habitId, habit: habit.name, every_days: every }
   },
 }
 
@@ -448,5 +548,5 @@ const getDailyLog: Tool = {
 export const TOOLS: Tool[] = [
   listTasks, createTask, updateTask, completeTask, deleteTask,
   listEntities, createEntity,
-  getHabits, logHabit, getDailyLog,
+  getHabits, logHabit, logCadence, getDailyLog,
 ]
