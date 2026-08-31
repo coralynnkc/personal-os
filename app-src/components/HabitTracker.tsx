@@ -8,7 +8,7 @@ import {
   byMostOverdue, cadenceState, normalizeEveryDays, type HabitKind,
 } from '@/lib/cadence'
 import { useDialog } from '@/lib/useDialog'
-import { ErrorRow } from './jobs/ui'
+import { ErrorRow, useConfirm } from './jobs/ui'
 
 // `fetch` only rejects on a network failure, so a 500 came back through the
 // happy path and got rendered as an empty grid. These throw on both.
@@ -208,6 +208,7 @@ function ScoreRing({ score, size = 36 }: { score: number; size?: number }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function HabitTracker() {
+  const [confirm, confirmDialog] = useConfirm()
   const [habits, setHabits] = useState<HabitDef[]>([])
   const [logs, setLogs] = useState<MonthLogs>({})
   const [cadence, setCadence] = useState<CadenceLog>({})
@@ -434,7 +435,7 @@ export default function HabitTracker() {
 
   async function deleteHabit(id: string) {
     const habit = habits.find(h => h.id === id)
-    if (!window.confirm(`Delete habit "${habit?.name ?? id}"?`)) return
+    if (!(await confirm(`Delete habit "${habit?.name ?? id}"?`))) return
     await saveHabits(habits.filter(h => h.id !== id), 'delete')
   }
 
@@ -574,6 +575,7 @@ export default function HabitTracker() {
           onClose={() => setEditingHabit(null)}
         />
       )}
+      {confirmDialog}
     </CardShell>
   )
 }

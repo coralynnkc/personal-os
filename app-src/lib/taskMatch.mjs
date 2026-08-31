@@ -63,6 +63,44 @@ export function rowTitle(row, choice) {
 }
 
 /**
+ * The titles a row is allowed to be known by, best first.
+ *
+ * The em dash is the cut that always holds — everything after it is the author
+ * talking to herself. A colon is the one that doesn't: `On the plane: The
+ * Elements of Scrum` puts the work on the *right*, and `ACT 410: read chapter
+ * 3` puts it on the left, and the file gives no way to tell which. So neither
+ * side replaces the title; both are offered *after* it, and the high threshold
+ * stays the thing that says no. A row still joins on its whole title whenever
+ * it can, and only falls back to a half when the whole one misses.
+ *
+ * The tail goes before the head because the colon is usually read as a label —
+ * `Reading:`, `Optional:`, `On the plane:` — and a label is the half that
+ * isn't the work.
+ */
+export function titleCandidates(title) {
+  const at = title.indexOf(':')
+  if (at === -1) return [title]
+  const head = title.slice(0, at).trim()
+  const tail = title.slice(at + 1).trim()
+  return [title, tail, head].filter((t, i, all) => t && all.indexOf(t) === i)
+}
+
+/**
+ * The first of a row's titles that finds a task, and which one it was.
+ *
+ * Ordered, not scored across candidates: the halves exist to rescue a row the
+ * whole title misses, never to outrank it. `via` is what the diagnostic prints
+ * so a join made on half a row is visible as one.
+ */
+export function matchAny(titles, date, tasks, options) {
+  for (const title of titles) {
+    const task = matchTask({ title, date }, tasks, options)
+    if (task) return { task, title }
+  }
+  return null
+}
+
+/**
  * How well one task answers to a title, and why. Split out of `matchTask` so
  * the diagnostic can report a near miss — "this scored 0.75, it wanted
  * `homework`" — instead of only ever saying no.
@@ -142,7 +180,7 @@ export function rowTask(row, date, tasks, choice, link) {
     if (linked) return linked
   }
   if (!date) return null
-  return matchTask({ title: rowTitle(row, choice), date }, tasks, ROW_MATCH)
+  return matchAny(titleCandidates(rowTitle(row, choice)), date, tasks, ROW_MATCH)?.task ?? null
 }
 
 /**

@@ -26,6 +26,10 @@ export function chosenArm(row: WeekRow, choice: string | undefined): RowArm | nu
 export function rowWhat(row: WeekRow, choice?: string): string
 export function rowSkipped(row: WeekRow, choice?: string): boolean
 export function rowTitle(row: WeekRow, choice?: string): string
+export function titleCandidates(title: string): string[]
+export function matchAny(
+  titles: string[], date: string, tasks: MatchableTask[], options?: MatchOptions,
+): { task: MatchableTask; title: string } | null
 export function scoreTask(target: Matchable, task: MatchableTask): Score
 export function matchTask(
   target: Matchable, tasks: MatchableTask[], options?: MatchOptions,

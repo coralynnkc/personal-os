@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { USER_TZ } from '@/lib/dateKey'
 import PomodoroRail from './pomodoro/PomodoroRail'
@@ -33,6 +33,53 @@ function Clock() {
   }, [])
 
   return <span className="mono rail-clock" style={{ fontSize: 11, color: 'var(--slate)', letterSpacing: '0.04em' }}>{display}</span>
+}
+
+/**
+ * The way out of a password-gated app.
+ *
+ * The cookie is 30 days and httpOnly, so nothing in the browser can drop it —
+ * only the route can. `router.refresh()` after it, so the server components
+ * re-run against a request that no longer carries the session and the proxy
+ * sends the redirect.
+ */
+function Logout() {
+  const router = useRouter()
+  const path = usePathname()
+  const [busy, setBusy] = useState(false)
+
+  const logout = async () => {
+    setBusy(true)
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+      router.replace('/login')
+      router.refresh()
+    } catch {
+      // Nothing to recover: the cookie is either gone or it isn't, and the
+      // next guarded request will say which.
+      setBusy(false)
+    }
+  }
+
+  // The rail is in the root layout, so it draws over the login page too —
+  // where an offer to sign out is an offer to do nothing.
+  if (path === '/login') return null
+
+  return (
+    <button
+      onClick={logout}
+      disabled={busy}
+      className="quiet-link"
+      title="Sign out"
+      style={{
+        background: 'transparent', border: 0, borderRadius: 0, padding: 0,
+        cursor: busy ? 'default' : 'pointer', fontSize: 11,
+        letterSpacing: '0.12em', color: 'var(--slate)',
+      }}
+    >
+      {busy ? 'signing out…' : 'sign out'}
+    </button>
+  )
 }
 
 export default function Rail() {
@@ -84,6 +131,7 @@ export default function Rail() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s4)' }}>
         <PomodoroRail />
         <Clock />
+        <Logout />
       </div>
     </nav>
   )

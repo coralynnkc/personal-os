@@ -7,7 +7,7 @@ import { USER_TZ } from '@/lib/dateKey'
 import { useDialog } from '@/lib/useDialog'
 import { useKeyboard } from '@/lib/useKeyboard'
 import StartFocusButton from '@/components/pomodoro/StartFocusButton'
-import { ErrorRow } from '@/components/jobs/ui'
+import { ErrorRow, useConfirm } from '@/components/jobs/ui'
 import {
   localToday, dueLabel, tagFrequency, displayTags, TONE_COLOR,
   EMPTY_TAG_FREQ, type TagFreq,
@@ -40,7 +40,7 @@ type Task = {
   created_at: string
 }
 
-type Entity = { id: string; name: string; kind: string | null; metadata?: { archived?: boolean } }
+type Entity = { id: string; name: string; kind: string | null; metadata?: { archived?: boolean; weekly_hours?: number | null } }
 type View = 'kanban' | 'forecast' | 'category'
 type Sort = 'priority' | 'due' | 'title' | 'points' | 'created'
 type Urgency = 'today' | 'week' | 'month' | 'someday'
@@ -476,6 +476,7 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
   onUncomplete: (id: string) => Promise<void>
   isMobile: boolean
 }) {
+  const [confirm, confirmDialog] = useConfirm()
   const [form, setForm] = useState<Partial<Task>>({})
   const [tagInput, setTagInput] = useState('')
   const [entities, setEntities] = useState<Entity[]>(initialEntities)
@@ -554,7 +555,7 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
-              onClick={() => { if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id) }}
+              onClick={async () => { if (await confirm(`Delete "${task.title}"?`)) onDelete(task.id) }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)' }}
               title="Delete task" aria-label="Delete task"
             >
@@ -693,6 +694,7 @@ function TaskDrawer({ task, entities: initialEntities, onClose, onSave, onDelete
         </div>
 
       </div>
+      {confirmDialog}
     </>
   )
 }
@@ -790,10 +792,72 @@ function ProjectSelect({ id, entities, value, onChange, onCreated, inputStyle }:
 
 // ── Manage projects modal ──────────────────────────────────────────────────
 
+/**
+ * The hours a project is *meant* to get in a week.
+ *
+ * The week tab's "where the hours go" reads this as the denominator: with a
+ * number the bar is a commitment you are behind on, without one it is only a
+ * share of whatever the week happened to hold. Nothing else in the app had
+ * anywhere to write it, so the bar's first half has never run.
+ *
+ * Committed on blur and on Enter rather than per keystroke — every save is a
+ * PATCH plus a refetch, and "2" on the way to "20" is not a number anyone
+ * meant. Blank is a real answer: it clears the target back to a share.
+ */
+function HoursField({ entity, onSave }: {
+  entity: Entity
+  onSave: (hours: number | null) => void
+}) {
+  const stored = entity.metadata?.weekly_hours
+  const [value, setValue] = useState(stored == null ? '' : String(stored))
+
+  // The list is refetched after every patch, so the row this is drawn for is a
+  // new object each time; follow the stored value unless it's being typed into.
+  useEffect(() => { setValue(stored == null ? '' : String(stored)) }, [stored])
+
+  const commit = () => {
+    const text = value.trim()
+    const hours = text === '' ? null : Number(text)
+    if (hours !== null && (!Number.isFinite(hours) || hours <= 0)) {
+      setValue(stored == null ? '' : String(stored))
+      return
+    }
+    if (hours === (stored ?? null)) return
+    onSave(hours)
+  }
+
+  return (
+    <span style={{ display: 'flex', alignItems: 'baseline', gap: 2, flexShrink: 0 }}>
+      <input
+        value={value}
+        onChange={ev => setValue(ev.target.value)}
+        onBlur={commit}
+        onKeyDown={ev => {
+          if (ev.key === 'Enter') ev.currentTarget.blur()
+          if (ev.key === 'Escape') setValue(stored == null ? '' : String(stored))
+        }}
+        inputMode="decimal"
+        placeholder="—"
+        aria-label={`Weekly hours for ${entity.name}`}
+        title="Hours this project is meant to get each week"
+        className="mono"
+        style={{
+          width: 30, background: 'transparent', border: 0,
+          borderBottom: '1px solid var(--rule)', color: 'var(--ink-5)',
+          fontSize: 'var(--text-sm)', textAlign: 'right', padding: '1px 2px',
+          outline: 'none', borderRadius: 0,
+        }}
+      />
+      <span className="mono" style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-3)' }}>h/wk</span>
+    </span>
+  )
+}
+
 function ManageProjectsModal({ onClose, onChange }: {
   onClose: () => void
   onChange: () => void
 }) {
+  const [confirm, confirmDialog] = useConfirm()
   const [entities, setEntities] = useState<Entity[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -815,7 +879,7 @@ function ManageProjectsModal({ onClose, onChange }: {
 
   const remove = async (id: string) => {
     const entity = entities.find(e => e.id === id)
-    if (!window.confirm(`Delete project "${entity?.name ?? id}"? Tasks keep existing but lose this project.`)) return
+    if (!(await confirm(`Delete project "${entity?.name ?? id}"? Tasks keep existing but lose this project.`))) return
     await fetch(`/api/entities/${id}`, { method: 'DELETE' })
     setEntities(prev => prev.filter(e => e.id !== id))
     onChange()
@@ -871,7 +935,8 @@ function ManageProjectsModal({ onClose, onChange }: {
                 </>
               ) : (
                 <>
-                  <span style={{ flex: 1, fontSize: 'var(--text-base)', color: 'var(--ink-5)' }}>{e.name}</span>
+                  <span style={{ flex: 1, fontSize: 'var(--text-base)', color: 'var(--ink-5)', minWidth: 0 }}>{e.name}</span>
+                  <HoursField entity={e} onSave={hours => patch(e.id, { metadata: { weekly_hours: hours } })} />
                   {e.kind && <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', border: '1px solid var(--glass-border)', borderRadius: 0, padding: '1px 5px' }}>{e.kind}</span>}
                   <button onClick={() => { setEditingId(e.id); setEditName(e.name) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 'var(--text-base)' }} title="Rename" aria-label="Rename">✎</button>
                   <button onClick={() => patch(e.id, { metadata: { archived: true } })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ok)', fontSize: 'var(--text-sm)' }} title="Mark complete" aria-label="Mark complete">✓</button>
@@ -894,6 +959,7 @@ function ManageProjectsModal({ onClose, onChange }: {
           )}
         </div>
       </div>
+      {confirmDialog}
     </>
   )
 }

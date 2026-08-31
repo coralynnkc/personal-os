@@ -1,6 +1,8 @@
 'use client'
 
+import { useCallback, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
+import { useDialog } from '@/lib/useDialog'
 
 // The shared chrome. There are no cards any more: a panel is a run of rows
 // under a title, separated from what follows it by a hairline.
@@ -119,4 +121,100 @@ export const buttonStyle: CSSProperties = {
   border: 0,
   borderRadius: 0,
   padding: '2px 0',
+}
+
+// ── Confirm ────────────────────────────────────────────────────────────────
+
+type ConfirmRequest = {
+  message: string
+  confirmLabel: string
+  resolve: (ok: boolean) => void
+}
+
+/**
+ * `window.confirm` for a page that has a design.
+ *
+ * The native dialog is the one piece of chrome the surface never got to style,
+ * and it blocks the whole tab while it is up. This keeps the shape of the call
+ * that made it worth using — a question, awaited, answered yes or no, right
+ * where the handler already stood — so a call site only grows an `await`:
+ *
+ *     const [confirm, confirmDialog] = useConfirm()
+ *     if (!(await confirm(`Delete "${task.title}"?`))) return
+ *     …
+ *     return <>{…}{confirmDialog}</>
+ *
+ * The returned node is null until something asks, so rendering it costs
+ * nothing. Destructive by default: the verb is `Delete` and focus starts on
+ * Cancel, because the dangerous answer should never be the one Enter gives.
+ */
+export function useConfirm(): [
+  (message: string, confirmLabel?: string) => Promise<boolean>,
+  ReactNode,
+] {
+  const [pending, setPending] = useState<ConfirmRequest | null>(null)
+
+  const confirm = useCallback(
+    (message: string, confirmLabel = 'Delete') =>
+      new Promise<boolean>(resolve => setPending({ message, confirmLabel, resolve })),
+    [],
+  )
+
+  const settle = (ok: boolean) => {
+    pending?.resolve(ok)
+    setPending(null)
+  }
+
+  const node = pending
+    ? <ConfirmDialog request={pending} onSettle={settle} />
+    : null
+
+  return [confirm, node]
+}
+
+function ConfirmDialog({ request, onSettle }: {
+  request: ConfirmRequest
+  onSettle: (ok: boolean) => void
+}) {
+  // A question with no answer yet is still a "no" — Escape, the scrim, and an
+  // unmount all mean the same thing as Cancel.
+  const dialogRef = useDialog<HTMLDivElement>(() => onSettle(false))
+
+  return (
+    <>
+      <div
+        onClick={() => onSettle(false)}
+        aria-hidden="true"
+        style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: 200 }}
+      />
+      <div
+        ref={dialogRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-message"
+        tabIndex={-1}
+        style={{
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+          width: 'min(360px, calc(100vw - var(--s5)))', background: 'var(--tint)',
+          border: '1px solid var(--rule)', borderRadius: 0, zIndex: 201,
+          padding: 'var(--s5)', display: 'flex', flexDirection: 'column', gap: 'var(--s5)',
+        }}
+      >
+        <p id="confirm-message" style={{
+          margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--ivory)',
+        }}>
+          {request.message}
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--s4)' }}>
+          <button onClick={() => onSettle(false)} style={buttonStyle}>Cancel</button>
+          <button
+            onClick={() => onSettle(true)}
+            style={{ ...buttonStyle, color: 'var(--danger)' }}
+          >
+            {request.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </>
+  )
 }
