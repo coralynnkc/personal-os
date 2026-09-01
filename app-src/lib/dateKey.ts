@@ -30,3 +30,12 @@ export function habitDateKey(tz: string, now = new Date()): string {
   const effective = hour < GRACE_HOUR ? new Date(now.getTime() - 86_400_000) : now
   return toDateKey(effective, tz)
 }
+
+// The habit day is not always the calendar day: before 4am it is still
+// yesterday, and on the 1st of a month that means the tracker's "today" lives
+// in the *previous* month. Anything that picks a month, or marks today on the
+// grid, has to read it from here rather than from `new Date()`.
+export function parseDateKey(key: string): { year: number; month: number; day: number } {
+  const [year, month, day] = key.split('-').map(Number)
+  return { year, month: month - 1, day }
+}

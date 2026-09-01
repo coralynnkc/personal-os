@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, ChevronLeft, ChevronRight, X, Trash2, Sun, Moon, Lock } from 'lucide-react'
-import { habitDateKey, USER_TZ } from '@/lib/dateKey'
+import { habitDateKey, parseDateKey, USER_TZ } from '@/lib/dateKey'
 import {
   CADENCE_COLOR, MAX_EVERY_DAYS, MIN_EVERY_DAYS,
   byMostOverdue, cadenceState, normalizeEveryDays, type HabitKind,
@@ -103,10 +103,10 @@ function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate()
 }
 
-function habitMonthScore(logs: MonthLogs, habitId: string, levels: Level[], year: number, month: number, monthStoryPoints?: Record<string, number>): number {
-  const today = new Date()
-  const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month
-  const daysElapsed = isCurrentMonth ? today.getDate() : getDaysInMonth(year, month)
+function habitMonthScore(logs: MonthLogs, habitId: string, levels: Level[], year: number, month: number, todayKey: string, monthStoryPoints?: Record<string, number>): number {
+  const today = parseDateKey(todayKey)
+  const isCurrentMonth = today.year === year && today.month === month
+  const daysElapsed = isCurrentMonth ? today.day : getDaysInMonth(year, month)
   let total = 0
   for (let d = 1; d <= daysElapsed; d++) {
     const key = dateKey(year, month, d)
@@ -215,8 +215,10 @@ export default function HabitTracker() {
   const [storyPoints, setStoryPoints] = useState(0)
   const [monthStoryPoints, setMonthStoryPoints] = useState<Record<string, number>>({})
   const [view, setView] = useState<'today' | 'month'>('today')
-  const [month, setMonth] = useState(new Date().getMonth())
-  const [year, setYear] = useState(new Date().getFullYear())
+  // Seeded from the habit day, so a 12:30am visit opens on the month that
+  // still holds today's row instead of an empty new one.
+  const [month, setMonth] = useState(() => parseDateKey(habitDateKey(TZ)).month)
+  const [year, setYear] = useState(() => parseDateKey(habitDateKey(TZ)).year)
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingHabit, setEditingHabit] = useState<HabitDef | null>(null)
   const [loading, setLoading] = useState(true)
@@ -556,6 +558,7 @@ export default function HabitTracker() {
               monthStoryPoints={monthStoryPoints}
               month={month}
               year={year}
+              todayKey={today}
               onShift={shiftMonth}
               onLog={logHabit}
             />
@@ -942,6 +945,7 @@ function MonthView({
   monthStoryPoints,
   month,
   year,
+  todayKey,
   onShift,
   onLog,
 }: {
@@ -950,14 +954,16 @@ function MonthView({
   monthStoryPoints: Record<string, number>
   month: number
   year: number
+  todayKey: string
   onShift: (delta: number) => void
   onLog: (id: string, date: string, level: number) => void
 }) {
   const daysInMonth = getDaysInMonth(year, month)
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
+  const habitToday = parseDateKey(todayKey)
   const todayDay =
-    new Date().getFullYear() === year && new Date().getMonth() === month
-      ? new Date().getDate()
+    habitToday.year === year && habitToday.month === month
+      ? habitToday.day
       : null
 
   // Every fifth day carries a number, and today always does — with any
@@ -1089,7 +1095,7 @@ function MonthView({
       {/* Monthly averages bars */}
       <div style={{ marginTop: 'var(--s5)', borderTop: '1px solid var(--rule)', paddingTop: 'var(--s3)' }}>
         {allHabits.map(habit => {
-          const score = habitMonthScore(logs, habit.id, habit.levels, year, month, monthStoryPoints)
+          const score = habitMonthScore(logs, habit.id, habit.levels, year, month, todayKey, monthStoryPoints)
           return (
             <div key={habit.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', padding: '3px 0' }}>
               <span title={habit.name} style={{ width: LABEL_W, fontSize: 'var(--text-sm)', color: 'var(--ash)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{habit.name}</span>
