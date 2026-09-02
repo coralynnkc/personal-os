@@ -1,16 +1,17 @@
-// MCP tools for the /jobs tab: the application pipeline, the research library
-// behind the Targets view, and the daily rhythm.
+// MCP tools for the /jobs tab: the application pipeline and the research
+// library behind the Targets view.
 //
-// These mirror /api/applications and /api/jobs/rhythm rather than reimplementing
-// them — same writable columns, same duplicate handling, same applied_on stamp —
-// so a change made through Claude is indistinguishable from one made in the UI.
+// These mirror /api/applications rather than reimplementing them — same
+// writable columns, same duplicate handling, same applied_on stamp, same story
+// point for a submitted application — so a change made through Claude is
+// indistinguishable from one made in the UI.
 
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
 import {
   STATUSES, WAVES, STALE_AFTER_DAYS, RESEARCH_FIELDS,
   daysSince, isStale, type Application,
 } from '@/lib/jobs'
-import { readRhythm, materialiseRhythm } from '@/lib/rhythmStore'
+import { creditApplication } from '@/lib/applicationCredit'
 import { dbFail, todayInUserTz, type Tool } from './shared'
 import {
   fail, optBoolean, optDate, optEnum, optInt, optString, optUuid,
@@ -107,7 +108,8 @@ const createApplication: Tool = {
   description:
     "Add a company to the pipeline board. Only company_name is required; status defaults to 'researching'. " +
     'Pass entity_id from list_job_targets when the company is already in the research library, so the research links through. ' +
-    'One company can only be tracked once per wave — a second attempt with the same wave is rejected rather than duplicated.',
+    'One company can only be tracked once per wave — a second attempt with the same wave is rejected rather than duplicated. ' +
+    'A row created in a submitted status earns its story point straight away.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -151,7 +153,9 @@ const createApplication: Tool = {
       if (error.code === '23505') fail('already tracking this company for that wave — update that row instead')
       dbFail('create_application', error)
     }
-    return shapeApp(data as unknown as Application, todayInUserTz(), false)
+    const today = todayInUserTz()
+    await creditApplication(data as unknown as Application, today)
+    return shapeApp(data as unknown as Application, today, false)
   },
 }
 
@@ -160,7 +164,9 @@ const updateApplication: Tool = {
   description:
     'Update fields on a pipeline row — most often status, as a company moves from applied to OA to onsite. Supply only ' +
     "the fields you want to change; an explicit null clears one. Moving a row to 'applied' with no applied_on stamps " +
-    'today, matching what the board does.',
+    'today, matching what the board does, and books the one story point an application is worth. That point is paid at ' +
+    'most once per application, so moving a row on through OA and onsite does not pay again — never create a task by ' +
+    'hand to record that Cora applied to something.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -225,7 +231,9 @@ const updateApplication: Tool = {
 
     if (error) dbFail('update_application', error)
     if (!data) fail(`no application with id ${id}`)
-    return shapeApp(data as unknown as Application, todayInUserTz(), false)
+    const now = todayInUserTz()
+    await creditApplication(data as unknown as Application, now)
+    return shapeApp(data as unknown as Application, now, false)
   },
 }
 
@@ -263,7 +271,9 @@ const logPortalCheck: Tool = {
 
     if (error) dbFail('log_portal_check', error)
     if (!data) fail(`no application with id ${id}`)
-    return shapeApp(data as unknown as Application, todayInUserTz(), false)
+    const now = todayInUserTz()
+    await creditApplication(data as unknown as Application, now)
+    return shapeApp(data as unknown as Application, now, false)
   },
 }
 
@@ -371,32 +381,7 @@ const listJobTargets: Tool = {
   },
 }
 
-const getJobRhythm: Tool = {
-  name: 'get_job_rhythm',
-  description:
-    "The day's job-search rhythm — the LeetCode pattern for the week plus that weekday's practice, whose slots become real " +
-    'task rows so they show up in Today and count toward story points. Sunday is a rest day and plans nothing. Set ' +
-    'materialize to create any slots that do not have a task row yet; that is safe to repeat, since each slot is created ' +
-    'at most once per day. Complete a slot with complete_task on its task_id.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      date: { type: 'string', description: "YYYY-MM-DD. Defaults to today in Cora's timezone." },
-      materialize: { type: 'boolean', description: "Create the day's missing task rows. Default false (read-only)." },
-    },
-  },
-  async handler(args) {
-    const date = optDate(args, 'date') ?? todayInUserTz()
-    const create = optBoolean(args, 'materialize') ?? false
-    try {
-      return create ? await materialiseRhythm(date) : await readRhythm(date)
-    } catch (e) {
-      dbFail('get_job_rhythm', e as Error)
-    }
-  },
-}
-
 export const JOB_TOOLS: Tool[] = [
   listApplications, createApplication, updateApplication, logPortalCheck, deleteApplication,
-  listJobTargets, getJobRhythm,
+  listJobTargets,
 ]

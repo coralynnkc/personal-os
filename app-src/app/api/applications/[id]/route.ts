@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
 import { parseJsonBody } from '@/lib/http'
-import { STATUSES } from '@/lib/jobs'
+import { toDateKey, USER_TZ } from '@/lib/dateKey'
+import { creditApplication } from '@/lib/applicationCredit'
+import { STATUSES, type Application } from '@/lib/jobs'
 
 const ALLOWED = [
   'entity_id', 'company_name', 'role_title', 'wave', 'status',
@@ -35,7 +37,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       .eq('id', id)
       .eq('user_id', USER_ID)
       .single()
-    if (!existing?.applied_on) patch.applied_on = new Date().toISOString().slice(0, 10)
+    if (!existing?.applied_on) patch.applied_on = toDateKey(new Date(), USER_TZ)
   }
 
   const { data, error } = await supabaseAdmin
@@ -50,6 +52,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     console.error('application PATCH error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // Every move into a submitted status runs through here, and the credit is
+  // marker-guarded, so dragging a card applied → OA → onsite pays once.
+  await creditApplication(data as unknown as Application, toDateKey(new Date(), USER_TZ))
 
   return NextResponse.json(data)
 }

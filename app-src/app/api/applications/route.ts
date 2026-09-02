@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
 import { parseJsonBody } from '@/lib/http'
-import { STATUSES } from '@/lib/jobs'
+import { toDateKey, USER_TZ } from '@/lib/dateKey'
+import { creditApplication } from '@/lib/applicationCredit'
+import { STATUSES, type Application } from '@/lib/jobs'
 
 const WRITABLE = [
   'entity_id', 'company_name', 'role_title', 'wave', 'status',
@@ -65,6 +67,10 @@ export async function POST(req: Request) {
     console.error('applications POST error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // A row can be added already applied — pasting in one you sent last week —
+  // so the point is owed on create as well as on the move to applied.
+  await creditApplication(data as unknown as Application, toDateKey(new Date(), USER_TZ))
 
   return NextResponse.json(data)
 }
