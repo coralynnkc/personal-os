@@ -67,6 +67,7 @@ Run the migrations in `app-src/supabase/migrations/` in your Supabase project's 
 - `0003_pomodoro.sql` — `habit_config.pomodoro` (timer durations)
 - `0004_documents.sql` — `documents` (the synced week and semester planning docs)
 - `0005_cadence_habits.sql` — `habit_events` (habits with a rhythm rather than a day)
+- `0006_job_notes.sql` — `job_notes` (the daily job-search note)
 
 All tables have RLS enabled; access goes through the service role key in API routes.
 
@@ -115,6 +116,7 @@ Push to GitHub and import into Vercel. Add the environment variables from step 2
 - **New** — `n`, or the button above the board: a drawer for a role you found and applied to yourself (a GitHub listing, a referral) with no research behind it. Defaults to the GitHub wave, applied, dated today, so the usual add is a company name and Enter.
 - **Targets** — the company research library, filterable by industry, role category, and competitiveness. "Track" promotes a company into the pipeline with the research already linked.
 - **Stale portals** — every watched application whose portal hasn't been checked in 14 days, oldest first. One click opens the portal and stamps today's date.
+- **Notes** — the day's job search on one page. Three derived lists — confirmed open and not applied to, gone quiet long enough to chase (21 days after applying, 7 inside an interview loop), interviews in the next fortnight — over a free-text note for the part nothing can derive: what to learn next, what a recruiter said. The note autosaves and is one row per day in `job_notes`.
 - **A story point per application** — the first time a row reaches a submitted status, a completed 1pt task is written for it, dated `applied_on`, so sending an application counts toward the day like anything else. Marker-tagged, so it is paid once no matter how far the row travels afterwards.
 
 Companies live in `entities` with `kind = 'company'` and their research in `metadata`; applications get their own table because they have a lifecycle worth filtering and sorting on.
@@ -226,6 +228,9 @@ The `?key=` form exists because Claude's custom-connector UI has no field for a 
 | `log_portal_check` | Mark a portal checked (and optionally moved), clearing it from the stale queue |
 | `delete_application` | Permanently remove a pipeline row |
 | `list_job_targets` | Search the company research library, with whether each is already tracked |
+| `get_job_briefing` | What is open, what has gone quiet, what interview is coming — derived from the pipeline |
+| `get_job_note` | Read the free-text job-search note for a day, or the last N days |
+| `write_job_note` | Write or append to a day's job-search note |
 
 ### Security
 

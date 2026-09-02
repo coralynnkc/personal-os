@@ -7,12 +7,13 @@ import StaleStrip from './StaleStrip'
 import WaveStrip from './WaveStrip'
 import Pipeline from './Pipeline'
 import Targets from './Targets'
+import Notes from './Notes'
 import AppDrawer from './AppDrawer'
 import AddDrawer from './AddDrawer'
 import { useKeyboard } from '@/lib/useKeyboard'
 import type { Application, CompanyEntity } from '@/lib/jobs'
 
-type View = 'pipeline' | 'targets'
+type View = 'pipeline' | 'targets' | 'notes'
 
 function Toggle<T extends string>({
   value, options, onChange, label,
@@ -179,7 +180,7 @@ export default function JobsClient() {
           label="Job search view"
           value={view}
           onChange={setView}
-          options={[['pipeline', 'Pipeline'], ['targets', 'Targets']] as const}
+          options={[['pipeline', 'Pipeline'], ['targets', 'Targets'], ['notes', 'Notes']] as const}
         />
         {view === 'pipeline' && (
           <Toggle
@@ -209,9 +210,11 @@ export default function JobsClient() {
       )}
 
       {loading ? (
-        <Panel title={view === 'pipeline' ? 'Pipeline' : 'Targets'}>
+        <Panel title={view === 'pipeline' ? 'Pipeline' : view === 'targets' ? 'Targets' : 'Notes'}>
           <Empty>Loading…</Empty>
         </Panel>
+      ) : view === 'notes' ? (
+        <Notes apps={apps} today={today} onOpen={a => setOpenId(a.id)} />
       ) : view === 'pipeline' ? (
         <Pipeline
           apps={apps}

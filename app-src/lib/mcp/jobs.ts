@@ -1,5 +1,5 @@
-// MCP tools for the /jobs tab: the application pipeline and the research
-// library behind the Targets view.
+// MCP tools for the /jobs tab: the application pipeline, the research library
+// behind the Targets view, and the daily note.
 //
 // These mirror /api/applications rather than reimplementing them — same
 // writable columns, same duplicate handling, same applied_on stamp, same story
@@ -12,6 +12,7 @@ import {
   daysSince, isStale, type Application,
 } from '@/lib/jobs'
 import { creditApplication } from '@/lib/applicationCredit'
+import { buildBriefing } from '@/lib/briefing'
 import { dbFail, todayInUserTz, type Tool } from './shared'
 import {
   fail, optBoolean, optDate, optEnum, optInt, optString, optUuid,
@@ -381,7 +382,148 @@ const listJobTargets: Tool = {
   },
 }
 
+
+const getJobBriefing: Tool = {
+  name: 'get_job_briefing',
+  description:
+    "The day's job search in one call — what is confirmed open and not applied to yet, what has gone quiet long enough to " +
+    'be worth chasing, and which interviews fall in the next fortnight. All of it derived from the pipeline, so it is the ' +
+    'same thing the Notes view shows. Start here when Cora asks what she should be doing about the job search today, ' +
+    'rather than listing every application and working it out.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      date: { type: 'string', description: "YYYY-MM-DD to reckon from. Defaults to today in Cora's timezone." },
+    },
+  },
+  async handler(args) {
+    const today = optDate(args, 'date') ?? todayInUserTz()
+
+    const { data, error } = await supabaseAdmin
+      .from('applications')
+      .select(APP_SELECT)
+      .eq('user_id', USER_ID)
+    if (error) dbFail('get_job_briefing', error)
+
+    const brief = buildBriefing((data ?? []) as unknown as Application[], today)
+    const line = (i: { app: Application; detail: string }) => ({
+      id: i.app.id,
+      company_name: i.app.company_name,
+      role_title: i.app.role_title,
+      status: i.app.status,
+      portal_url: i.app.portal_url,
+      why: i.detail,
+    })
+
+    return {
+      date: today,
+      open_not_applied: brief.open.map(line),
+      worth_chasing: brief.followUp.map(line),
+      coming_up: brief.upcoming.map(line),
+    }
+  },
+}
+
+const getJobNote: Tool = {
+  name: 'get_job_note',
+  description:
+    "Read Cora's free-text job-search note for a day — the half of the Notes view that is not derived from the pipeline: " +
+    'what she wants to learn next, what a recruiter said, which posting to watch for. Pass days to read the recent ones ' +
+    'instead, newest first; days with nothing written simply have no row.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      date: { type: 'string', description: "YYYY-MM-DD. Defaults to today in Cora's timezone." },
+      days: { type: 'integer', description: 'Instead of one day, the notes from the last N days, 1-90.' },
+    },
+  },
+  async handler(args) {
+    const days = optInt(args, 'days')
+
+    if (days != null) {
+      if (days < 1 || days > 90) fail('days must be a whole number between 1 and 90')
+      const from = new Date()
+      from.setUTCDate(from.getUTCDate() - days)
+
+      const { data, error } = await supabaseAdmin
+        .from('job_notes')
+        .select('note_date, body, updated_at')
+        .eq('user_id', USER_ID)
+        .gte('note_date', from.toISOString().slice(0, 10))
+        .order('note_date', { ascending: false })
+      if (error) dbFail('get_job_note', error)
+      return { count: (data ?? []).length, notes: data ?? [] }
+    }
+
+    const date = optDate(args, 'date') ?? todayInUserTz()
+    const { data, error } = await supabaseAdmin
+      .from('job_notes')
+      .select('note_date, body, updated_at')
+      .eq('user_id', USER_ID)
+      .eq('note_date', date)
+      .maybeSingle()
+    if (error) dbFail('get_job_note', error)
+
+    // A day with nothing written is a blank page, not a missing one.
+    return data ?? { note_date: date, body: '', updated_at: null }
+  },
+}
+
+const writeJobNote: Tool = {
+  name: 'write_job_note',
+  description:
+    "Write Cora's job-search note for a day. This is her page, not a log to dump into: read it with get_job_note first and " +
+    'send back the whole body you want the day to end up with, since the write replaces it rather than appending. Use ' +
+    'append instead when you only want to add a line under what is already there. An empty body clears the day.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      body: { type: 'string', description: 'The note text. Required. Replaces the day unless append is true.' },
+      date: { type: 'string', description: "YYYY-MM-DD. Defaults to today in Cora's timezone." },
+      append: { type: 'boolean', description: "Add this to the end of the day's note instead of replacing it. Default false." },
+    },
+    required: ['body'],
+  },
+  async handler(args) {
+    const date = optDate(args, 'date') ?? todayInUserTz()
+    const incoming = requireString(args, 'body')
+    const append = optBoolean(args, 'append') ?? false
+    if (incoming.length > 20_000) fail('body must be at most 20000 characters')
+
+    let body = incoming
+    if (append) {
+      const { data, error } = await supabaseAdmin
+        .from('job_notes')
+        .select('body')
+        .eq('user_id', USER_ID)
+        .eq('note_date', date)
+        .maybeSingle()
+      if (error) dbFail('write_job_note', error)
+      const existing = data?.body ?? ''
+      body = existing.trim() ? `${existing.replace(/\s+$/, '')}\n\n${incoming}` : incoming
+    }
+
+    if (!body.trim()) {
+      const { error } = await supabaseAdmin
+        .from('job_notes')
+        .delete()
+        .eq('user_id', USER_ID)
+        .eq('note_date', date)
+      if (error) dbFail('write_job_note', error)
+      return { note_date: date, body: '', cleared: true }
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('job_notes')
+      .upsert({ user_id: USER_ID, note_date: date, body }, { onConflict: 'user_id,note_date' })
+      .select('note_date, body, updated_at')
+      .single()
+    if (error) dbFail('write_job_note', error)
+    return data
+  },
+}
+
 export const JOB_TOOLS: Tool[] = [
   listApplications, createApplication, updateApplication, logPortalCheck, deleteApplication,
-  listJobTargets,
+  listJobTargets, getJobBriefing, getJobNote, writeJobNote,
 ]
