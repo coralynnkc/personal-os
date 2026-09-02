@@ -4,7 +4,7 @@
 
 export const STATUSES = [
   'researching', 'not_open', 'open', 'applied',
-  'oa', 'phone', 'onsite', 'offer', 'rejected', 'ghosted', 'no_roles',
+  'oa', 'phone', 'onsite', 'offer', 'rejected', 'ghosted', 'no_roles', 'passed',
 ] as const
 
 export type Status = (typeof STATUSES)[number]
@@ -21,6 +21,7 @@ export const STATUS_LABEL: Record<Status, string> = {
   rejected:    'Rejected',
   ghosted:     'Ghosted',
   no_roles:    'No roles',
+  passed:      "Don't want to apply",
 }
 
 // Left-to-right order of the kanban columns: research → live → in flight → done.
@@ -29,8 +30,9 @@ export const PIPELINE_ORDER: Status[] = [
 ]
 
 // Terminal states — collapsed into a single "Closed" column so eight live
-// columns don't compete with three dead ones for horizontal space.
-export const CLOSED_STATUSES: Status[] = ['rejected', 'ghosted', 'no_roles']
+// columns don't compete with four dead ones for horizontal space. `passed` is
+// the one you close yourself: you read the role and decided against it.
+export const CLOSED_STATUSES: Status[] = ['rejected', 'ghosted', 'no_roles', 'passed']
 
 /**
  * A closed application leaves the board entirely for the Archive, rather than
@@ -62,6 +64,7 @@ export const STATUS_COLOR: Record<Status, string> = {
   rejected:    'var(--slate)',
   ghosted:     'var(--slate)',
   no_roles:    'var(--slate)',
+  passed:      'var(--slate)',
 }
 
 export const WAVES = ['Wave 1', 'Wave 2', 'Wave 3', 'Rolling', 'GitHub'] as const

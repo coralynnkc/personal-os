@@ -1,10 +1,9 @@
 'use client'
 
 import { Panel, Empty, labelStyle } from './ui'
-import { WAVES, STATUS_COLOR, type Application, type Status } from '@/lib/jobs'
+import { WAVES, STATUS_COLOR, CLOSED_STATUSES, type Application, type Status } from '@/lib/jobs'
 
 const IN_FLIGHT: Status[] = ['applied', 'oa', 'phone', 'onsite', 'offer']
-const CLOSED: Status[] = ['rejected', 'ghosted', 'no_roles']
 
 /**
  * Wave milestones, derived.
@@ -23,7 +22,7 @@ export default function WaveStrip({ apps }: { apps: Application[] }) {
       open: rows.filter(a => a.status === 'open').length,
       inFlight: rows.filter(a => IN_FLIGHT.includes(a.status)).length,
       waiting: rows.filter(a => a.status === 'not_open' || a.status === 'researching').length,
-      closed: rows.filter(a => CLOSED.includes(a.status)).length,
+      closed: rows.filter(a => CLOSED_STATUSES.includes(a.status)).length,
     }
   }).filter(w => w.total > 0)
 

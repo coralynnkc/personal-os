@@ -282,7 +282,7 @@ const deleteApplication: Tool = {
   name: 'delete_application',
   description:
     'Permanently remove a row from the pipeline board. This cannot be undone, and it loses the whole history of that ' +
-    "application — for something that ended, prefer update_application with status 'rejected', 'ghosted' or 'no_roles'. " +
+    "application — for something that ended, prefer update_application with status 'rejected', 'ghosted', 'no_roles' or 'passed' (decided against applying). " +
     'Confirm with Cora before deleting.',
   inputSchema: {
     type: 'object',

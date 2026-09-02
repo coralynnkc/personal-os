@@ -68,6 +68,7 @@ Run the migrations in `app-src/supabase/migrations/` in your Supabase project's 
 - `0004_documents.sql` — `documents` (the synced week and semester planning docs)
 - `0005_cadence_habits.sql` — `habit_events` (habits with a rhythm rather than a day)
 - `0006_job_notes.sql` — `job_notes` (the daily job-search note)
+- `0007_job_status_passed.sql` — the `passed` ("Don't want to apply") pipeline status
 
 All tables have RLS enabled; access goes through the service role key in API routes.
 

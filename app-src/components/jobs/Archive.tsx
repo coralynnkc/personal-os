@@ -42,7 +42,7 @@ export default function Archive({
       }
     >
       {rows.length === 0 ? (
-        <Empty>Nothing has closed yet. Rejected and ghosted applications land here and stay.</Empty>
+        <Empty>Nothing has closed yet. Applications you were rejected from, were ghosted by, or decided against land here and stay.</Empty>
       ) : (
         rows.map(app => {
           const applied = daysSince(app.applied_on, today)
