@@ -1,6 +1,8 @@
 import { supabaseAdmin, USER_ID } from '@/lib/supabase'
 import { habitDateKey, USER_TZ } from '@/lib/dateKey'
 import { cadenceState, normalizeEveryDays } from '@/lib/cadence'
+import { JOB_TOOLS } from './jobs'
+import { dbFail, todayInUserTz, type Tool } from './shared'
 import {
   Args, fail, optBoolean, optDate, optEnum, optInt, optString, optTags,
   optTimestamp, optUuid, requireInt, requireString, requireUuid, set,
@@ -21,26 +23,6 @@ const DERIVED_HABIT_IDS: Record<string, string> = {
   __story__: 'Story points are derived from the points on completed tasks, not logged directly.',
 }
 
-type JsonSchema = { type: 'object'; properties: Record<string, unknown>; required?: string[] }
-
-export type Tool = {
-  name: string
-  description: string
-  inputSchema: JsonSchema
-  handler: (args: Args) => Promise<unknown>
-}
-
-// Surface the Postgres message to the caller (it is often actionable — a
-// foreign-key miss, a check-constraint name) while still logging server-side
-// in the same shape as the REST routes.
-function dbFail(label: string, error: { message: string }): never {
-  console.error(`mcp ${label} error:`, error)
-  fail(error.message)
-}
-
-function todayInUserTz(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date())
-}
 
 type ConfigHabit = {
   id: string
@@ -545,8 +527,11 @@ const getDailyLog: Tool = {
   },
 }
 
+export type { Tool }
+
 export const TOOLS: Tool[] = [
   listTasks, createTask, updateTask, completeTask, deleteTask,
   listEntities, createEntity,
   getHabits, logHabit, logCadence, getDailyLog,
+  ...JOB_TOOLS,
 ]

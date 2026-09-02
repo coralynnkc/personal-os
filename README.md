@@ -220,6 +220,13 @@ The `?key=` form exists because Claude's custom-connector UI has no field for a 
 | `log_habit` | Set a habit's level for a day; defaults to the 4am-rollover habit day |
 | `log_cadence` | Record that a cadence habit (laundry, sheets) was done; `undo` removes it |
 | `get_daily_log` | Habit levels and sleep for one day or a date range |
+| `list_applications` | The pipeline board — filter by status, wave, search, or `stale_only`; every row carries days-since and `stale` |
+| `create_application` | Track a company; pass `entity_id` to link its research |
+| `update_application` | Patch a pipeline row; moving to `applied` stamps today |
+| `log_portal_check` | Mark a portal checked (and optionally moved), clearing it from the stale queue |
+| `delete_application` | Permanently remove a pipeline row |
+| `list_job_targets` | Search the company research library, with whether each is already tracked |
+| `get_job_rhythm` | The day's job-search rhythm; `materialize` creates its task rows |
 
 ### Security
 
@@ -240,7 +247,7 @@ app-src/
     pomodoro/     # Rail timer, provider, task-row start button
     week/         # Week tab — day sections, deadline strip, long-form doc view
   lib/            # Supabase client, auth helpers, job-search domain types
-    mcp/          # MCP tool definitions and argument validation
+    mcp/          # MCP tool definitions (tasks/habits + jobs) and argument validation
   scripts/        # Maintenance scripts (spreadsheet import, planning-doc sync + link check)
   supabase/
     migrations/   # DB schema
