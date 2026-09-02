@@ -8,12 +8,13 @@ import WaveStrip from './WaveStrip'
 import Pipeline from './Pipeline'
 import Targets from './Targets'
 import Notes from './Notes'
+import Archive from './Archive'
 import AppDrawer from './AppDrawer'
 import AddDrawer from './AddDrawer'
 import { useKeyboard } from '@/lib/useKeyboard'
-import type { Application, CompanyEntity } from '@/lib/jobs'
+import { isClosed, type Application, type CompanyEntity } from '@/lib/jobs'
 
-type View = 'pipeline' | 'targets' | 'notes'
+type View = 'pipeline' | 'targets' | 'notes' | 'archive'
 
 function Toggle<T extends string>({
   value, options, onChange, label,
@@ -170,6 +171,12 @@ export default function JobsClient() {
 
   const open = apps.find(a => a.id === openId) ?? null
 
+  // The board, the strips and the derived lists are all about live work, so
+  // closed rows are held out of every one of them. They are not gone — the
+  // Archive is the whole of them, kept forever.
+  const live = apps.filter(a => !isClosed(a.status))
+  const closed = apps.filter(a => isClosed(a.status))
+
   return (
     <div style={{ padding: 'var(--s5)', width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--s6)' }}>
       <div style={{
@@ -180,7 +187,7 @@ export default function JobsClient() {
           label="Job search view"
           value={view}
           onChange={setView}
-          options={[['pipeline', 'Pipeline'], ['targets', 'Targets'], ['notes', 'Notes']] as const}
+          options={[['pipeline', 'Pipeline'], ['targets', 'Targets'], ['notes', 'Notes'], ['archive', 'Archive']] as const}
         />
         {view === 'pipeline' && (
           <Toggle
@@ -191,7 +198,7 @@ export default function JobsClient() {
           />
         )}
         <span style={{ ...labelStyle, marginLeft: 'auto' }}>
-          {apps.length} tracked · {companies.length} researched
+          {live.length} live · {closed.length} closed · {companies.length} researched
         </span>
         <button onClick={() => setAddOpen(true)} style={buttonStyle}>+ New</button>
       </div>
@@ -201,23 +208,25 @@ export default function JobsClient() {
       {today && !loading && (
         <>
           <StaleStrip
-            apps={apps}
+            apps={live}
             today={today}
             onStamp={(a, status) => patch(a.id, { portal_last_checked: today, ...(status ? { status } : {}) })}
           />
-          <WaveStrip apps={apps} />
+          <WaveStrip apps={live} />
         </>
       )}
 
       {loading ? (
-        <Panel title={view === 'pipeline' ? 'Pipeline' : view === 'targets' ? 'Targets' : 'Notes'}>
+        <Panel title={{ pipeline: 'Pipeline', targets: 'Targets', notes: 'Notes', archive: 'Archive' }[view]}>
           <Empty>Loading…</Empty>
         </Panel>
+      ) : view === 'archive' ? (
+        <Archive apps={closed} today={today} onOpen={a => setOpenId(a.id)} />
       ) : view === 'notes' ? (
-        <Notes apps={apps} today={today} onOpen={a => setOpenId(a.id)} />
+        <Notes apps={live} today={today} onOpen={a => setOpenId(a.id)} />
       ) : view === 'pipeline' ? (
         <Pipeline
-          apps={apps}
+          apps={live}
           today={today}
           view={pipelineView}
           onOpen={a => setOpenId(a.id)}

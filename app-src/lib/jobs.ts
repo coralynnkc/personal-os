@@ -33,6 +33,17 @@ export const PIPELINE_ORDER: Status[] = [
 export const CLOSED_STATUSES: Status[] = ['rejected', 'ghosted', 'no_roles']
 
 /**
+ * A closed application leaves the board entirely for the Archive, rather than
+ * sitting in a graveyard column taking up a ninth of the width to show you
+ * nothing you can act on. It is never deleted: there is no sprint here and no
+ * sprint report, so these rows *are* the record of the search — the only thing
+ * that can answer "how many did I send, and where did they die".
+ */
+export function isClosed(status: Status): boolean {
+  return CLOSED_STATUSES.includes(status)
+}
+
+/**
  * A status is not a deadline, and colour in this app only ever means time —
  * so the ladder is read in weight, not hue. The one exception is an offer:
  * there is exactly one accent, and if anything on this board earns it, it is

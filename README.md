@@ -112,7 +112,8 @@ Push to GitHub and import into Vercel. Add the environment variables from step 2
 
 `/jobs` replaces a two-sheet tracking spreadsheet.
 
-- **Pipeline** — applications as a board (or a table, for bulk edits), grouped by status. Opening a card shows the research for that company alongside it.
+- **Pipeline** — live applications as a board (or a table, for bulk edits), grouped by status. Drag a card between columns to move it; the drawer's status select does the same thing and is the way that works without a mouse. Opening a card shows the research for that company alongside it.
+- **Archive** — everything that closed: rejected, ghosted, no roles. Kept forever, because with no sprint and no sprint report these rows are the only record of how the search actually went. Closed rows are held out of the board, the strips and the Notes lists, so nothing live has to compete with them for space.
 - **New** — `n`, or the button above the board: a drawer for a role you found and applied to yourself (a GitHub listing, a referral) with no research behind it. Defaults to the GitHub wave, applied, dated today, so the usual add is a company name and Enter.
 - **Targets** — the company research library, filterable by industry, role category, and competitiveness. "Track" promotes a company into the pipeline with the research already linked.
 - **Stale portals** — every watched application whose portal hasn't been checked in 14 days, oldest first. One click opens the portal and stamps today's date.
