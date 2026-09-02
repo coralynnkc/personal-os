@@ -115,7 +115,7 @@ Push to GitHub and import into Vercel. Add the environment variables from step 2
 - **New** — `n`, or the button above the board: a drawer for a role you found and applied to yourself (a GitHub listing, a referral) with no research behind it. Defaults to the GitHub wave, applied, dated today, so the usual add is a company name and Enter.
 - **Targets** — the company research library, filterable by industry, role category, and competitiveness. "Track" promotes a company into the pipeline with the research already linked.
 - **Stale portals** — every watched application whose portal hasn't been checked in 14 days, oldest first. One click opens the portal and stamps today's date.
-- **Daily rhythm** — the LeetCode/system-design cadence, materialised as real `tasks` rows so it shows up in Today's Tasks and counts toward story points.
+- **A story point per application** — the first time a row reaches a submitted status, a completed 1pt task is written for it, dated `applied_on`, so sending an application counts toward the day like anything else. Marker-tagged, so it is paid once no matter how far the row travels afterwards.
 
 Companies live in `entities` with `kind = 'company'` and their research in `metadata`; applications get their own table because they have a lifecycle worth filtering and sorting on.
 
@@ -222,11 +222,10 @@ The `?key=` form exists because Claude's custom-connector UI has no field for a 
 | `get_daily_log` | Habit levels and sleep for one day or a date range |
 | `list_applications` | The pipeline board — filter by status, wave, search, or `stale_only`; every row carries days-since and `stale` |
 | `create_application` | Track a company; pass `entity_id` to link its research |
-| `update_application` | Patch a pipeline row; moving to `applied` stamps today |
+| `update_application` | Patch a pipeline row; moving to `applied` stamps today and books its story point |
 | `log_portal_check` | Mark a portal checked (and optionally moved), clearing it from the stale queue |
 | `delete_application` | Permanently remove a pipeline row |
 | `list_job_targets` | Search the company research library, with whether each is already tracked |
-| `get_job_rhythm` | The day's job-search rhythm; `materialize` creates its task rows |
 
 ### Security
 

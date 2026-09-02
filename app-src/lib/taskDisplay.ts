@@ -69,7 +69,7 @@ export function dueLabel(
 
 // ── Tags ───────────────────────────────────────────────────────────────────
 
-/** Namespaced tags (`rhythm:2026-08-29:lc-new`) are machine markers, never UI. */
+/** Namespaced tags (`application:<uuid>:applied`) are machine markers, never UI. */
 const INTERNAL_TAG = /:/
 
 /** A tag on this share of all tasks separates nothing, so it stops rendering. */

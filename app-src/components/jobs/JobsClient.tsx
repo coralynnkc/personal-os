@@ -5,7 +5,6 @@ import { toDateKey, USER_TZ } from '@/lib/dateKey'
 import { Panel, ErrorRow, Empty, buttonStyle, labelStyle, useConfirm } from './ui'
 import StaleStrip from './StaleStrip'
 import WaveStrip from './WaveStrip'
-import RhythmCard from './RhythmCard'
 import Pipeline from './Pipeline'
 import Targets from './Targets'
 import AppDrawer from './AppDrawer'
@@ -205,10 +204,7 @@ export default function JobsClient() {
             today={today}
             onStamp={(a, status) => patch(a.id, { portal_last_checked: today, ...(status ? { status } : {}) })}
           />
-          <div className="grid gap-6 items-start grid-cols-1 lg:grid-cols-2">
-            <WaveStrip apps={apps} />
-            <RhythmCard />
-          </div>
+          <WaveStrip apps={apps} />
         </>
       )}
 
