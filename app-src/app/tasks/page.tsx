@@ -1137,10 +1137,13 @@ function sortTasks(tasks: Task[], sort: Sort): Task[] {
   return [...tasks].sort((a, b) => {
     switch (sort) {
       case 'due': {
-        if (!a.due_date && !b.due_date) return 0
-        if (!a.due_date) return 1
-        if (!b.due_date) return -1
-        return a.due_date.localeCompare(b.due_date)
+        if (a.due_date !== b.due_date) {
+          if (!a.due_date) return 1
+          if (!b.due_date) return -1
+          return a.due_date.localeCompare(b.due_date)
+        }
+        if (b.priority_score !== a.priority_score) return b.priority_score - a.priority_score
+        return b.created_at.localeCompare(a.created_at)
       }
       case 'title':
         return a.title.localeCompare(b.title)
@@ -1163,7 +1166,7 @@ function TasksInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [view, setView] = useState<View>('kanban')
-  const [sort, setSort] = useState<Sort>('priority')
+  const [sort, setSort] = useState<Sort>('due')
   const [tasks, setTasks] = useState<Task[]>([])
   const [entities, setEntities] = useState<Entity[]>([])
   const [loading, setLoading] = useState(true)
@@ -1438,8 +1441,8 @@ function TasksInner() {
             padding: 0, cursor: 'pointer', outline: 'none', letterSpacing: '0.06em',
           }}
         >
-          <option value="priority">Priority</option>
           <option value="due">Due date</option>
+          <option value="priority">Priority</option>
           <option value="points">Points</option>
           <option value="title">Title A–Z</option>
           <option value="created">Newest</option>
