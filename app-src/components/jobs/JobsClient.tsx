@@ -7,14 +7,15 @@ import StaleStrip from './StaleStrip'
 import WaveStrip from './WaveStrip'
 import Pipeline from './Pipeline'
 import Targets from './Targets'
-import Notes from './Notes'
+import Briefing from './Briefing'
+import NotePad from './NotePad'
 import Archive from './Archive'
 import AppDrawer from './AppDrawer'
 import AddDrawer from './AddDrawer'
 import { useKeyboard } from '@/lib/useKeyboard'
 import { isClosed, type Application, type CompanyEntity } from '@/lib/jobs'
 
-type View = 'pipeline' | 'targets' | 'notes' | 'archive'
+type View = 'pipeline' | 'targets' | 'archive'
 
 function Toggle<T extends string>({
   value, options, onChange, label,
@@ -187,7 +188,7 @@ export default function JobsClient() {
           label="Job search view"
           value={view}
           onChange={setView}
-          options={[['pipeline', 'Pipeline'], ['targets', 'Targets'], ['notes', 'Notes'], ['archive', 'Archive']] as const}
+          options={[['pipeline', 'Pipeline'], ['targets', 'Targets'], ['archive', 'Archive']] as const}
         />
         {view === 'pipeline' && (
           <Toggle
@@ -205,35 +206,43 @@ export default function JobsClient() {
 
       {error && <ErrorRow message={error} onRetry={load} />}
 
+      {/* The two halves of a sitting: clear the queue, write down what you saw. */}
       {today && !loading && (
-        <>
+        <div className="grid gap-6 items-start grid-cols-1 lg:grid-cols-2">
           <StaleStrip
             apps={live}
             today={today}
             onStamp={(a, status) => patch(a.id, { portal_last_checked: today, ...(status ? { status } : {}) })}
           />
-          <WaveStrip apps={live} />
-        </>
+          <NotePad today={today} />
+        </div>
       )}
 
       {loading ? (
-        <Panel title={{ pipeline: 'Pipeline', targets: 'Targets', notes: 'Notes', archive: 'Archive' }[view]}>
+        <Panel title={{ pipeline: 'Pipeline', targets: 'Targets', archive: 'Archive' }[view]}>
           <Empty>Loading…</Empty>
         </Panel>
       ) : view === 'archive' ? (
         <Archive apps={closed} today={today} onOpen={a => setOpenId(a.id)} />
-      ) : view === 'notes' ? (
-        <Notes apps={live} today={today} onOpen={a => setOpenId(a.id)} />
       ) : view === 'pipeline' ? (
-        <Pipeline
-          apps={live}
-          today={today}
-          view={pipelineView}
-          onOpen={a => setOpenId(a.id)}
-          onPatch={patch}
-        />
+        <>
+          {/* Every line here is a pipeline row, so it belongs beside the board. */}
+          {today && <Briefing apps={live} today={today} onOpen={a => setOpenId(a.id)} />}
+          <Pipeline
+            apps={live}
+            today={today}
+            view={pipelineView}
+            onOpen={a => setOpenId(a.id)}
+            onPatch={patch}
+          />
+        </>
       ) : (
-        <Targets companies={companies} apps={apps} onTrack={track} busyId={trackBusy} />
+        <>
+          {/* Waves are about which companies to go after next, which is the
+              question this screen is for — nowhere else. */}
+          <WaveStrip apps={live} />
+          <Targets companies={companies} apps={apps} onTrack={track} busyId={trackBusy} />
+        </>
       )}
 
       {!loading && !error && apps.length === 0 && companies.length === 0 && (

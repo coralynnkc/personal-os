@@ -12,6 +12,9 @@ import { cardStyle, labelStyle, Empty, Pill } from './ui'
 // lets a column light up only for a drag that started on this board.
 const DRAG_TYPE = 'application/x-personal-os-application'
 
+/** Narrowest a column gets before the board scrolls instead of squeezing. */
+const COLUMN_FLOOR = 118
+
 function Card({
   app, today, onOpen, onDragStart, onDragEnd, dragging,
 }: {
@@ -45,7 +48,7 @@ function Card({
       onDragEnd={onDragEnd}
       className="hoverable"
       style={{
-        width: '100%', textAlign: 'left', cursor: 'pointer',
+        width: '100%', minWidth: 0, textAlign: 'left', cursor: 'pointer',
         display: 'flex', flexDirection: 'column', gap: 2,
         padding: 'var(--s2) 0', borderRadius: 0,
         background: 'transparent', border: 0,
@@ -53,9 +56,14 @@ function Card({
         opacity: dragging ? 0.4 : 1,
       }}
     >
-      <span style={{ fontSize: 14, letterSpacing: '0.02em', color: 'var(--ivory)', lineHeight: 1.3 }}>{app.company_name}</span>
+      <span style={{
+        fontSize: 14, letterSpacing: '0.02em', color: 'var(--ivory)', lineHeight: 1.3,
+        minWidth: 0, overflowWrap: 'anywhere',
+      }}>
+        {app.company_name}
+      </span>
       {app.role_title && (
-        <span style={{ fontSize: 12, color: 'var(--slate)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 12, color: 'var(--slate)', lineHeight: 1.3, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {app.role_title}
         </span>
       )}
@@ -102,10 +110,19 @@ function Board({
   }
 
   return (
-    // Horizontal scroll lives on this container so the page body never scrolls
-    // sideways with eight columns of pipeline.
+    // Eight equal columns that share whatever width there is, rather than eight
+    // fixed 200px ones running off the right of the screen. The headings and
+    // their counts are what you read the board by, so all eight have to be on
+    // screen at once. `minmax(FLOOR, 1fr)` is the whole trick: a grid track
+    // ignores how wide its contents would like to be, which is what a row of
+    // flex columns would not — below the floor this container scrolls, so the
+    // page body still never does.
     <div style={{ overflowX: 'auto', padding: 'var(--s4) 0' }}>
-      <div style={{ display: 'flex', gap: 'var(--s5)', minWidth: 'min-content', alignItems: 'flex-start' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${PIPELINE_ORDER.length}, minmax(${COLUMN_FLOOR}px, 1fr))`,
+        gap: 'var(--s4)', alignItems: 'start',
+      }}>
         {columns.map((col, i) => {
           const active = over === col.status
           return (
@@ -126,9 +143,9 @@ function Board({
               }}
               onDrop={drop(col.status)}
               style={{
-                width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column',
+                minWidth: 0, display: 'flex', flexDirection: 'column',
                 borderLeft: i > 0 ? '1px solid var(--rule)' : undefined,
-                paddingLeft: i > 0 ? 'var(--s5)' : undefined,
+                paddingLeft: i > 0 ? 'var(--s4)' : undefined,
                 // The drop target is named by the one colour that means chosen.
                 background: active ? 'var(--tint)' : undefined,
                 outline: active ? '1px solid var(--champagne)' : undefined,
@@ -138,10 +155,14 @@ function Board({
                 display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
                 gap: 'var(--s2)', paddingBottom: 'var(--s2)', marginBottom: 'var(--s3)',
               }}>
-                <span style={{ fontSize: 13, letterSpacing: '0.1em', color: active ? 'var(--champagne)' : col.color }}>
+                <span style={{
+                  fontSize: 13, letterSpacing: '0.06em', minWidth: 0,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  color: active ? 'var(--champagne)' : col.color,
+                }}>
                   {col.label.toLowerCase()}
                 </span>
-                <span className="mono" style={{ fontSize: 20, lineHeight: 1, color: 'var(--slate)' }}>
+                <span className="mono" style={{ fontSize: 18, lineHeight: 1, flexShrink: 0, color: 'var(--slate)' }}>
                   {col.rows.length}
                 </span>
               </div>

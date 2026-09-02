@@ -1,10 +1,10 @@
 // What the pipeline already knows about today.
 //
-// The Notes view is two halves. This is the half that writes itself: three
-// questions the board can answer without being asked — what is open and
-// waiting on you, what has gone quiet long enough to chase, and what is
-// actually in the diary. Deriving them beats a checklist because a derived
-// line disappears when the thing is done, and a checklist line does not.
+// The briefing that sits above the pipeline board — three questions the board
+// can answer without being asked: what is open and waiting on you, what has
+// gone quiet long enough to chase, and what is actually in the diary. Deriving
+// them beats a checklist because a derived line disappears when the thing is
+// done, and a checklist line does not.
 //
 // Pure and synchronous on purpose: it runs on rows the /jobs tab has already
 // fetched, so the view costs no extra request and re-derives instantly when a

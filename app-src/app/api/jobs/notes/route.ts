@@ -3,7 +3,7 @@ import { supabaseAdmin, USER_ID } from '@/lib/supabase'
 import { parseJsonBody } from '@/lib/http'
 import { toDateKey, USER_TZ } from '@/lib/dateKey'
 
-// The free-text half of the Notes view — one row per day in `job_notes`.
+// The free-text note beside the stale queue — one row per day in `job_notes`.
 //
 //   GET  /api/jobs/notes?date=YYYY-MM-DD   → that day's note (blank if none)
 //   GET  /api/jobs/notes?days=N            → the last N days that have a note

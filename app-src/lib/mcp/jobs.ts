@@ -388,7 +388,7 @@ const getJobBriefing: Tool = {
   description:
     "The day's job search in one call — what is confirmed open and not applied to yet, what has gone quiet long enough to " +
     'be worth chasing, and which interviews fall in the next fortnight. All of it derived from the pipeline, so it is the ' +
-    'same thing the Notes view shows. Start here when Cora asks what she should be doing about the job search today, ' +
+    'same thing the briefing above the pipeline board shows. Start here when Cora asks what she should be doing about the job search today, ' +
     'rather than listing every application and working it out.',
   inputSchema: {
     type: 'object',
@@ -427,7 +427,7 @@ const getJobBriefing: Tool = {
 const getJobNote: Tool = {
   name: 'get_job_note',
   description:
-    "Read Cora's free-text job-search note for a day — the half of the Notes view that is not derived from the pipeline: " +
+    "Read Cora's free-text job-search note for a day — the part of the /jobs tab that is not derived from the pipeline: " +
     'what she wants to learn next, what a recruiter said, which posting to watch for. Pass days to read the recent ones ' +
     'instead, newest first; days with nothing written simply have no row.',
   inputSchema: {
