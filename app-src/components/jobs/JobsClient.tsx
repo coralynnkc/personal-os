@@ -9,6 +9,8 @@ import RhythmCard from './RhythmCard'
 import Pipeline from './Pipeline'
 import Targets from './Targets'
 import AppDrawer from './AppDrawer'
+import AddDrawer from './AddDrawer'
+import { useKeyboard } from '@/lib/useKeyboard'
 import type { Application, CompanyEntity } from '@/lib/jobs'
 
 type View = 'pipeline' | 'targets'
@@ -51,6 +53,7 @@ export default function JobsClient() {
   const [error, setError] = useState<string | null>(null)
   const [trackBusy, setTrackBusy] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
 
   // Resolved after mount so the server's configured timezone and the browser's
   // detected one can't disagree across hydration.
@@ -101,37 +104,49 @@ export default function JobsClient() {
     }
   }, [apps])
 
-  const track = useCallback(async (c: CompanyEntity) => {
-    setTrackBusy(c.id)
-    const meta = (c.metadata ?? {}) as Record<string, unknown>
+  /**
+   * The one write that creates a pipeline row, shared by Track-from-Targets
+   * and the add drawer. Returns the failure as a message rather than throwing
+   * or owning the banner, because the drawer wants to show it inline and stay
+   * open — a duplicate is usually fixed by changing the wave, not by starting
+   * over.
+   */
+  const create = useCallback(async (body: Partial<Application>): Promise<string | null> => {
     try {
       const res = await fetch('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entity_id: c.id,
-          company_name: c.name,
-          role_title: meta.position_title ?? null,
-          portal_url: meta.apply_url ?? null,
-          portal_last_checked: meta.portal_last_checked_date ?? null,
-          status: 'researching',
-        }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) {
         const { error: msg } = await res.json().catch(() => ({ error: null }))
-        throw new Error(msg ?? `HTTP ${res.status}`)
+        return msg ?? `HTTP ${res.status}`
       }
       const created = await res.json()
-      // Stay where you are: the row flips to "Tracked" in place, so you can
-      // work down a filtered list without being thrown to the pipeline.
       setApps(prev => [created, ...prev])
+      return null
     } catch (e) {
-      console.error('track error:', e)
-      setError(`Could not track ${c.name}: ${(e as Error).message}`)
-    } finally {
-      setTrackBusy(null)
+      console.error('application create error:', e)
+      return (e as Error).message
     }
   }, [])
+
+  const track = useCallback(async (c: CompanyEntity) => {
+    setTrackBusy(c.id)
+    const meta = (c.metadata ?? {}) as Record<string, unknown>
+    // Stay where you are: the row flips to "Tracked" in place, so you can
+    // work down a filtered list without being thrown to the pipeline.
+    const msg = await create({
+      entity_id: c.id,
+      company_name: c.name,
+      role_title: (meta.position_title ?? null) as string | null,
+      portal_url: (meta.apply_url ?? null) as string | null,
+      portal_last_checked: (meta.portal_last_checked_date ?? null) as string | null,
+      status: 'researching',
+    })
+    if (msg) setError(`Could not track ${c.name}: ${msg}`)
+    setTrackBusy(null)
+  }, [create])
 
   const remove = useCallback(async (id: string) => {
     const app = apps.find(a => a.id === id)
@@ -148,6 +163,10 @@ export default function JobsClient() {
       setError('Could not remove that application.')
     }
   }, [apps, confirm])
+
+  useKeyboard([
+    { keys: 'n', label: 'New application', group: 'Jobs', run: () => setAddOpen(true) },
+  ])
 
   const open = apps.find(a => a.id === openId) ?? null
 
@@ -174,6 +193,7 @@ export default function JobsClient() {
         <span style={{ ...labelStyle, marginLeft: 'auto' }}>
           {apps.length} tracked · {companies.length} researched
         </span>
+        <button onClick={() => setAddOpen(true)} style={buttonStyle}>+ New</button>
       </div>
 
       {error && <ErrorRow message={error} onRetry={load} />}
@@ -229,6 +249,15 @@ export default function JobsClient() {
           onPatch={p => patch(open.id, p)}
           onDelete={() => remove(open.id)}
           onClose={() => setOpenId(null)}
+        />
+      )}
+
+      {addOpen && (
+        <AddDrawer
+          companies={companies}
+          today={today}
+          onCreate={create}
+          onClose={() => setAddOpen(false)}
         />
       )}
 

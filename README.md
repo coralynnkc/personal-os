@@ -43,13 +43,14 @@ Press `?` anywhere for the live sheet — it is generated from the registry in
 | `1` `2` `3` `4` | Today / Tasks / Jobs / Week | anywhere |
 | `g t` `g k` `g j` `g w` | The same four, chord spelling (kept off the sheet) | anywhere |
 | `n` | New task | /tasks |
+| `n` | New application | /jobs |
 | `/` | Focus the filter field | /tasks |
 | `j` / `k` | Next / previous task row | /tasks |
 | `x` | Complete the focused row | /tasks |
 
 `Escape` closes any dialog and clears the filter when the caret is in it;
 `Enter` commits an inline edit. Shortcuts never fire while a field has focus,
-or behind a modal. `/today`, `/jobs` and `/week` have none of their own yet.
+or behind a modal. `/today` and `/week` have none of their own yet.
 
 ## Stack
 
@@ -111,6 +112,7 @@ Push to GitHub and import into Vercel. Add the environment variables from step 2
 `/jobs` replaces a two-sheet tracking spreadsheet.
 
 - **Pipeline** — applications as a board (or a table, for bulk edits), grouped by status. Opening a card shows the research for that company alongside it.
+- **New** — `n`, or the button above the board: a drawer for a role you found and applied to yourself (a GitHub listing, a referral) with no research behind it. Defaults to the GitHub wave, applied, dated today, so the usual add is a company name and Enter.
 - **Targets** — the company research library, filterable by industry, role category, and competitiveness. "Track" promotes a company into the pipeline with the research already linked.
 - **Stale portals** — every watched application whose portal hasn't been checked in 14 days, oldest first. One click opens the portal and stamps today's date.
 - **Daily rhythm** — the LeetCode/system-design cadence, materialised as real `tasks` rows so it shows up in Today's Tasks and counts toward story points.
